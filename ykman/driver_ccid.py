@@ -38,7 +38,6 @@ from smartcard import System
 from smartcard.Exceptions import CardConnectionException
 from smartcard.pcsc.PCSCExceptions import ListReadersException
 from smartcard.pcsc.PCSCContext import PCSCContext
-from .device import DeviceConfig
 from .driver import AbstractDriver, ModeSwitchError, NotSupportedError
 from .util import AID, APPLICATION, TRANSPORT, YUBIKEY, Mode
 
@@ -139,8 +138,7 @@ class CCIDDriver(AbstractDriver):
 
         try:
             self.select(AID.MGR)
-            cfg = DeviceConfig(self.send_apdu(0, MGR_INS.READ_CONFIG, 0, 0))
-            return YUBIKEY.YK4, Mode(cfg.usb_enabled)
+            return YUBIKEY.YK4, Mode(TRANSPORT.CCID)
         except APDUError:
             pass
 
