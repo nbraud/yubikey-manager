@@ -130,10 +130,13 @@ class CCIDDriver(AbstractDriver):
 
     def _probe_type_and_mode(self):
         try:
-            self.select(AID.OTP)
-            return YUBIKEY.NEO, Mode(TRANSPORT.CCID)
+            s = self.select(AID.OTP)
+            version = tuple(c for c in six.iterbytes(s[:3]))
+            if version < (4, 0, 0):
+                return YUBIKEY.NEO, Mode(TRANSPORT.CCID)
         except APDUError:
             pass
+
         try:
             self.select(AID.MGR)
             cfg = DeviceConfig(self.send_apdu(0, MGR_INS.READ_CONFIG, 0, 0))
