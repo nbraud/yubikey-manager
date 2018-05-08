@@ -27,7 +27,7 @@
 
 from __future__ import absolute_import
 
-from .util import (APPLICATION, TRANSPORT, YUBIKEY, FORM_FACTOR, Tlv,
+from .util import (APPLICATION, TRANSPORT, INTERFACE, YUBIKEY, FORM_FACTOR, Tlv,
                    parse_tlvs, bytes2int, int2bytes)
 from .driver import AbstractDriver, NotSupportedError
 from enum import IntEnum, unique
@@ -275,6 +275,17 @@ class YubiKey(object):
     @property
     def config(self):
         return self._config
+
+    @property
+    def interface(self):
+        return self._driver.interface
+
+    @property
+    def available(self):
+        if self._driver.interface == INTERFACE.USB:
+            return self._config.usb_enabled
+        if self._driver.interface == INTERFACE.NFC:
+            return self._config.nfc_enabled & APPLICATION.dependent_on_ccid()
 
     @property
     def can_mode_switch(self):

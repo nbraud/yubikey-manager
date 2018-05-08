@@ -35,7 +35,7 @@ from .util import (
     click_callback, click_parse_b32_key,
     prompt_for_touch, UpperCaseChoice)
 from ..driver_ccid import APDUError,  SW_APPLICATION_NOT_FOUND
-from ..util import TRANSPORT, parse_b32_key
+from ..util import APPLICATION, TRANSPORT, parse_b32_key
 from ..oath import OathController, SW, CredentialData, OATH_TYPE, ALGO
 from ..settings import Settings
 
@@ -524,4 +524,5 @@ def _error_multiple_hits(ctx, hits):
     ctx.exit(1)
 
 
+oath.application = APPLICATION.OATH
 oath.transports = TRANSPORT.CCID

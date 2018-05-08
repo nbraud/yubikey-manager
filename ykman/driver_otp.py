@@ -31,7 +31,7 @@ import logging
 from .native.ykpers import Ykpers
 from ctypes import byref, c_int, c_uint, c_size_t, create_string_buffer
 from .driver import AbstractDriver, ModeSwitchError, NotSupportedError
-from .util import PID, TRANSPORT, Mode, MissingLibrary
+from .util import PID, INTERFACE, TRANSPORT, Mode, MissingLibrary
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +72,7 @@ class OTPDriver(AbstractDriver):
     """
     libykpers based OTP driver
     """
+    interface = INTERFACE.USB
     transport = TRANSPORT.OTP
 
     def __init__(self, dev):

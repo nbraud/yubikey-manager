@@ -29,7 +29,7 @@ from __future__ import absolute_import
 
 import logging
 import click
-from ..util import TRANSPORT
+from ..util import APPLICATION, TRANSPORT
 from ..opgp import OpgpController, KEY_SLOT, TOUCH_MODE
 from ..driver_ccid import APDUError, SW_APPLICATION_NOT_FOUND
 from .util import click_force_option, click_skip_on_help
@@ -197,4 +197,5 @@ def set_pin_retries(ctx, pw_attempts, admin_pin, force):
         echo_default_pins()
 
 
+openpgp.application = APPLICATION.OPGP
 openpgp.transports = TRANSPORT.CCID

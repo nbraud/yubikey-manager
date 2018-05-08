@@ -43,6 +43,7 @@ class NotSupportedError(Exception):
 class AbstractDriver(object):
     """Abstract driver class for communicating with a YubiKey"""
 
+    interface = None
     transport = None
 
     def __init__(self, key_type, mode):

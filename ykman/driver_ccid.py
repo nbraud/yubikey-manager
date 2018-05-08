@@ -39,7 +39,7 @@ from smartcard.Exceptions import CardConnectionException
 from smartcard.pcsc.PCSCExceptions import ListReadersException
 from smartcard.pcsc.PCSCContext import PCSCContext
 from .driver import AbstractDriver, ModeSwitchError, NotSupportedError
-from .util import AID, APPLICATION, TRANSPORT, YUBIKEY, Mode
+from .util import AID, APPLICATION, TRANSPORT, INTERFACE, YUBIKEY, Mode
 
 SW_OK = 0x9000
 SW_APPLICATION_NOT_FOUND = 0x6a82
@@ -115,6 +115,7 @@ class CCIDDriver(AbstractDriver):
     """
     Pyscard based CCID driver
     """
+    interface = INTERFACE.USB
     transport = TRANSPORT.CCID
 
     def __init__(self, connection, name):
@@ -125,6 +126,7 @@ class CCIDDriver(AbstractDriver):
             mode = Mode.from_pid(pid)
         else:
             key_type, mode = self._probe_type_and_mode()
+            self.interface = INTERFACE.NFC
         super(CCIDDriver, self).__init__(key_type, mode)
 
     def _probe_type_and_mode(self):

@@ -147,14 +147,17 @@ def cli(ctx, device, log_level, log_file):
         return
 
     transports = getattr(subcmd, 'transports', TRANSPORT.usb_transports())
-    if transports:
-        if device is not None:
-            dev = _run_cmd_for_serial(ctx, subcmd.name, transports, device)
-        else:
-            dev = _run_cmd_for_single(ctx, subcmd.name, transports)
+    if device is not None:
+        dev = _run_cmd_for_serial(ctx, subcmd.name, transports, device)
+    else:
+        dev = _run_cmd_for_single(ctx, subcmd.name, transports)
 
-        ctx.obj['dev'] = dev
-        ctx.call_on_close(dev.close)
+    application = getattr(subcmd, 'application')
+    if application and not dev.available & application:
+        ctx.fail("Command: '{}' is not accessible for this configuration.")
+
+    ctx.obj['dev'] = dev
+    ctx.call_on_close(dev.close)
 
 
 @cli.command('list')

@@ -27,7 +27,7 @@
 
 from __future__ import absolute_import
 
-from ..util import TRANSPORT, parse_private_key, parse_certificate
+from ..util import APPLICATION, TRANSPORT, parse_private_key, parse_certificate
 from ..piv import (
     PivController, ALGO, OBJ, SW, SLOT, PIN_POLICY, TOUCH_POLICY,
     DEFAULT_MANAGEMENT_KEY, generate_random_management_key)
@@ -812,4 +812,5 @@ def _check_touch_policy(ctx, controller, touch_policy):
                 touch_policy.name))
 
 
+piv.application = APPLICATION.PIV
 piv.transports = TRANSPORT.CCID

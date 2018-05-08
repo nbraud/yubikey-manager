@@ -31,7 +31,7 @@ import logging
 from fido2.ctap import CtapError
 from time import sleep
 from .util import click_skip_on_help, prompt_for_touch, click_force_option
-from ..util import TRANSPORT
+from ..util import APPLICATION, TRANSPORT
 from ..fido import Fido2Controller
 from ..descriptor import get_descriptors
 
@@ -203,4 +203,5 @@ def reset(ctx, force):
         ctx.fail('Reset failed.')
 
 
+fido.application = APPLICATION.FIDO2
 fido.transports = TRANSPORT.FIDO

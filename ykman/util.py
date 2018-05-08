@@ -178,6 +178,12 @@ class PID(IntEnum):
         return sum(TRANSPORT[x] for x in self.name.split('_')[1:])
 
 
+@unique
+class INTERFACE(Enum):
+    USB = 'USB'
+    NFC = 'NFC'
+
+
 class Mode(object):
     _modes = [
         TRANSPORT.OTP,  # 0x00
