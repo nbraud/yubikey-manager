@@ -38,6 +38,7 @@ from smartcard import System
 from smartcard.Exceptions import CardConnectionException
 from smartcard.pcsc.PCSCExceptions import ListReadersException
 from smartcard.pcsc.PCSCContext import PCSCContext
+from .device import DeviceConfig
 from .driver import AbstractDriver, ModeSwitchError, NotSupportedError
 from .util import AID, APPLICATION, TRANSPORT, YUBIKEY, Mode
 
@@ -108,6 +109,9 @@ def _pid_from_name(name):
     return key_type.get_pid(transports)
 
 
+_READER_NAME_YK = 'yubico yubikey'
+
+
 class CCIDDriver(AbstractDriver):
     """
     Pyscard based CCID driver
@@ -115,9 +119,29 @@ class CCIDDriver(AbstractDriver):
     transport = TRANSPORT.CCID
 
     def __init__(self, connection, name):
-        pid = _pid_from_name(name)
-        super(CCIDDriver, self).__init__(pid.get_type(), Mode.from_pid(pid))
         self._conn = connection
+        if name.lower().startswith(_READER_NAME_YK):
+            pid = _pid_from_name(name)
+            key_type = pid.get_type()
+            mode = Mode.from_pid(pid)
+        else:
+            key_type, mode = self._probe_type_and_mode()
+        super(CCIDDriver, self).__init__(key_type, mode)
+
+    def _probe_type_and_mode(self):
+        try:
+            self.select(AID.OTP)
+            return YUBIKEY.NEO, Mode(TRANSPORT.CCID)
+        except APDUError:
+            pass
+        try:
+            self.select(AID.MGR)
+            cfg = DeviceConfig(self.send_apdu(0, MGR_INS.READ_CONFIG, 0, 0))
+            return YUBIKEY.YK4, Mode(cfg.usb_enabled)
+        except APDUError:
+            pass
+
+        raise ValueError('Couldn\'t select OTP nor MGR applet!')
 
     def read_serial(self):
         try:
@@ -263,7 +287,7 @@ def _list_readers():
         return System.readers()
 
 
-def open_devices(name_filter='yubico yubikey'):
+def open_devices(name_filter=_READER_NAME_YK):
     readers = _list_readers()
     while readers:
         try_again = []
