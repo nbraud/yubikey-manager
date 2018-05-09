@@ -168,7 +168,7 @@ def cli(ctx, device, log_level, log_file, reader):
     else:
         dev = _run_cmd_for_single(ctx, subcmd.name, transports, reader=reader)
 
-    application = getattr(subcmd, 'application')
+    application = getattr(subcmd, 'application', None)
     if application and not dev.available & application:
         ctx.fail("Command: '{}' is not accessible for this configuration.")
 
