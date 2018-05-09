@@ -32,8 +32,10 @@ from ykman import __version__
 from ..util import TRANSPORT, Cve201715361VulnerableError, YUBIKEY
 from ..native.pyusb import get_usb_backend_version
 from ..driver_otp import libversion as ykpers_version
-from ..descriptor import (get_descriptors, list_devices, open_device,
-                          FailedOpeningDeviceException)
+from ..driver_ccid import open_devices as open_ccid
+from ..descriptor import (Descriptor, get_descriptors, list_devices,
+                          open_device, FailedOpeningDeviceException)
+from ..device import YubiKey
 from .util import click_skip_on_help, UpperCaseChoice
 from .info import info
 from .mode import mode
@@ -98,31 +100,44 @@ def _run_cmd_for_serial(ctx, cmd, transports, serial):
                      .format(serial))
 
 
-def _run_cmd_for_single(ctx, cmd, transports):
-    try:
-        descriptors = get_descriptors()
-    except usb.core.NoBackendError:
-        ctx.fail('No PyUSB backend detected!')
-    n_keys = len(descriptors)
-    if n_keys == 0:
-        ctx.fail('No YubiKey detected!')
-    if n_keys > 1:
-        ctx.fail('Multiple YubiKeys detected. Use --device SERIAL to specify '
-                 'which one to use.')
-    descriptor = descriptors[0]
-    if descriptor.mode.transports & transports:
-        try:
-            return descriptor.open_device(transports)
-        except FailedOpeningDeviceException:
-            ctx.fail('Failed connecting to the YubiKey.')
+def _run_cmd_for_single(ctx, cmd, transports, reader=None):
+    if reader:
+        readers = list(open_ccid(name_filter=reader))
+        n_keys = len(readers)
+        if n_keys == 0:
+            ctx.fail('No YubiKey detected!')
+        if n_keys > 1:
+            ctx.fail('Multiple YubiKeys detected.'
+                     'Use --device SERIAL to specify which one to use.')
+        reader = readers[0]
+        return YubiKey(Descriptor.from_driver(reader), reader)
     else:
-        _disabled_transport(ctx, transports, cmd)
+        try:
+            descriptors = get_descriptors()
+        except usb.core.NoBackendError:
+            ctx.fail('No PyUSB backend detected!')
+        n_keys = len(descriptors)
+        if n_keys == 0:
+            ctx.fail('No YubiKey detected!')
+        if n_keys > 1:
+            ctx.fail('Multiple YubiKeys detected.'
+                     ' Use --device SERIAL to specify which one to use.')
+        descriptor = descriptors[0]
+        if descriptor.mode.transports & transports:
+            try:
+                return descriptor.open_device(transports)
+            except FailedOpeningDeviceException:
+                ctx.fail('Failed connecting to the YubiKey.')
+        else:
+            _disabled_transport(ctx, transports, cmd)
 
 
 @click.group(context_settings=CLICK_CONTEXT_SETTINGS)
 @click.option('-v', '--version', is_flag=True, callback=print_version,
               expose_value=False, is_eager=True)
 @click.option('-d', '--device', type=int, metavar='SERIAL')
+@click.option('-r', '--reader', default=None,
+              help='Use av external smart card reader')
 @click.option('-l', '--log-level', default=None,
               type=UpperCaseChoice(ykman.logging_setup.LOG_LEVEL_NAMES),
               help='Enable logging at given verbosity level',
@@ -134,7 +149,7 @@ def _run_cmd_for_single(ctx, cmd, transports):
               )
 @click.pass_context
 @click_skip_on_help
-def cli(ctx, device, log_level, log_file):
+def cli(ctx, device, log_level, log_file, reader):
     """
     Configure your YubiKey via the command line.
     """
@@ -148,9 +163,10 @@ def cli(ctx, device, log_level, log_file):
 
     transports = getattr(subcmd, 'transports', TRANSPORT.usb_transports())
     if device is not None:
-        dev = _run_cmd_for_serial(ctx, subcmd.name, transports, device)
+        dev = _run_cmd_for_serial(
+                ctx, subcmd.name, transports, device, reader=reader)
     else:
-        dev = _run_cmd_for_single(ctx, subcmd.name, transports)
+        dev = _run_cmd_for_single(ctx, subcmd.name, transports, reader=reader)
 
     application = getattr(subcmd, 'application')
     if application and not dev.available & application:

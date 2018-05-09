@@ -83,6 +83,7 @@ def _is_cve201715361_vulnerable_yubikey():
 def ykman_cli(*args, **kwargs):
     return test.util.ykman_cli(
         '--device', _test_serial,
+        '--reader', 'hid',
         *args, **kwargs
     )
 
