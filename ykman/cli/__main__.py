@@ -83,21 +83,33 @@ def _disabled_transport(ctx, transports, cmd_name):
     ctx.fail("Use 'ykman mode' to set the enabled USB interfaces.")
 
 
-def _run_cmd_for_serial(ctx, cmd, transports, serial):
-    try:
-        return open_device(transports, serial=serial)
-    except FailedOpeningDeviceException:
-        try:  # Retry, any transport
-            dev = open_device(serial=serial)
-            if not dev.mode.transports & transports:
-                if dev.config.usb_supported & transports:
-                    _disabled_transport(ctx, transports, cmd)
+def _run_cmd_for_serial(ctx, cmd, transports, serial, reader=None):
+    if reader:
+        readers = list(open_ccid(name_filter=reader))
+        n_keys = len(readers)
+        if n_keys == 0:
+            ctx.fail('No YubiKey detected!')
+        if n_keys > 1:
+            ctx.fail('Multiple YubiKeys detected.'
+                     'Use --device SERIAL to specify which one to use.')
+        reader = readers[0]
+        return YubiKey(Descriptor.from_driver(reader), reader)
+    else:
+        try:
+            return open_device(transports, serial=serial)
+        except FailedOpeningDeviceException:
+            try:  # Retry, any transport
+                dev = open_device(serial=serial)
+                if not dev.mode.transports & transports:
+                    if dev.config.usb_supported & transports:
+                        _disabled_transport(ctx, transports, cmd)
                 else:
                     ctx.fail("Command '{}' is not supported by this device."
                              .format(cmd))
-        except FailedOpeningDeviceException:
-            ctx.fail('Failed connecting to a YubiKey with serial: {}'
-                     .format(serial))
+            except FailedOpeningDeviceException:
+                ctx.fail(
+                    'Failed connecting to a YubiKey with '
+                    'serial: {}'.format(serial))
 
 
 def _run_cmd_for_single(ctx, cmd, transports, reader=None):
