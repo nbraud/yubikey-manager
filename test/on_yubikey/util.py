@@ -17,7 +17,7 @@ _test_serial = os.environ.get('DESTRUCTIVE_TEST_YUBIKEY_SERIAL')
 _no_prompt = os.environ.get('DESTRUCTIVE_TEST_DO_NOT_PROMPT') == 'TRUE'
 
 if _test_serial is not None:
-    _one_yubikey = len(ykman.descriptor.get_descriptors()) == 1
+    _one_yubikey = len(list(ykman.descriptor.list_devices())) == 1
 
     _skip = False
 
@@ -83,7 +83,6 @@ def _is_cve201715361_vulnerable_yubikey():
 def ykman_cli(*args, **kwargs):
     return test.util.ykman_cli(
         '--device', _test_serial,
-        '--reader', 'hid',
         *args, **kwargs
     )
 

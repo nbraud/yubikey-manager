@@ -84,7 +84,7 @@ def _disabled_transport(ctx, transports, cmd_name):
 
 
 def _run_cmd_for_serial(ctx, cmd, transports, serial):
-    readers = list(open_ccid(include='', exclude=READER_NAME_YK))
+    readers = list(open_ccid(exclude=READER_NAME_YK))
     for reader in readers:
         dev = YubiKey(Descriptor.from_driver(reader), reader)
         if dev.serial == serial:
@@ -107,7 +107,7 @@ def _run_cmd_for_serial(ctx, cmd, transports, serial):
 
 
 def _run_cmd_for_single(ctx, cmd, transports):
-    readers = list(open_ccid(include='', exclude=READER_NAME_YK))
+    readers = list(open_ccid(exclude=READER_NAME_YK))
     try:
         descriptors = get_descriptors()
     except usb.core.NoBackendError:
@@ -213,7 +213,7 @@ def list_keys(ctx, serials):
         dev.close()
         if not descriptors and not skys:
             break
-    readers = list(open_ccid(include='', exclude=READER_NAME_YK))
+    readers = list(open_ccid(exclude=READER_NAME_YK))
     for reader in readers:
         dev = YubiKey(Descriptor.from_driver(reader), reader)
         if dev.serial not in handled_serials:

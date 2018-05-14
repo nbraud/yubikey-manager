@@ -290,24 +290,23 @@ def _list_readers():
         return System.readers()
 
 
-def open_devices(include=READER_NAME_YK, exclude=None):
+def open_devices(exclude=None):
     readers = _list_readers()
     while readers:
         try_again = []
         for reader in readers:
             if exclude and exclude.lower() in reader.name.lower():
                 continue
-            if include.lower() in reader.name.lower():
-                try:
-                    conn = reader.createConnection()
-                    conn.connect()
-                    yield CCIDDriver(conn, reader.name)
-                except CardConnectionException:
-                    try_again.append(reader)
-                except Exception as e:
-                    # Try with next reader.
-                    logger.debug(
-                        'Failed to connect to reader %s', reader, exc_info=e)
+            try:
+                conn = reader.createConnection()
+                conn.connect()
+                yield CCIDDriver(conn, reader.name)
+            except CardConnectionException:
+                try_again.append(reader)
+            except Exception as e:
+                # Try with next reader.
+                logger.debug(
+                    'Failed to connect to reader %s', reader, exc_info=e)
         if try_again and kill_scdaemon():
             readers = try_again
         else:

@@ -1,5 +1,8 @@
 import unittest
-from .util import (DestructiveYubikeyTestCase, ykman_cli, can_write_config)
+from ykman.util import TRANSPORT
+from .util import (
+    DestructiveYubikeyTestCase, ykman_cli,
+    can_write_config, missing_mode)
 
 
 @unittest.skipIf(not can_write_config(), 'Device can not write config')
@@ -118,6 +121,7 @@ class TestConfigNFC(DestructiveYubikeyTestCase):
         output = ykman_cli('config', 'nfc', '--list')
         self.assertNotIn('FIDO2', output)
 
+    @unittest.skipIf(*missing_mode(TRANSPORT.OTP))
     def test_disable_all(self):
         ykman_cli('config', 'nfc', '--disable-all', '-f')
         output = ykman_cli('config', 'nfc', '--list')
