@@ -108,7 +108,7 @@ def _pid_from_name(name):
     return key_type.get_pid(transports)
 
 
-_READER_NAME_YK = 'yubico yubikey'
+READER_NAME_YK = 'yubico yubikey'
 
 
 class CCIDDriver(AbstractDriver):
@@ -120,7 +120,7 @@ class CCIDDriver(AbstractDriver):
 
     def __init__(self, connection, name):
         self._conn = connection
-        if name.lower().startswith(_READER_NAME_YK):
+        if name.lower().startswith(READER_NAME_YK):
             pid = _pid_from_name(name)
             key_type = pid.get_type()
             mode = Mode.from_pid(pid)
@@ -290,12 +290,14 @@ def _list_readers():
         return System.readers()
 
 
-def open_devices(name_filter=_READER_NAME_YK):
+def open_devices(include=READER_NAME_YK, exclude=None):
     readers = _list_readers()
     while readers:
         try_again = []
         for reader in readers:
-            if reader.name.lower().startswith(name_filter):
+            if exclude and exclude.lower() in reader.name.lower():
+                continue
+            if include.lower() in reader.name.lower():
                 try:
                     conn = reader.createConnection()
                     conn.connect()

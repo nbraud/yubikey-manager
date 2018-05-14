@@ -32,7 +32,7 @@ from ykman import __version__
 from ..util import TRANSPORT, Cve201715361VulnerableError, YUBIKEY
 from ..native.pyusb import get_usb_backend_version
 from ..driver_otp import libversion as ykpers_version
-from ..driver_ccid import open_devices as open_ccid
+from ..driver_ccid import open_devices as open_ccid, READER_NAME_YK
 from ..descriptor import (Descriptor, get_descriptors, list_devices,
                           open_device, FailedOpeningDeviceException)
 from ..device import YubiKey
@@ -83,61 +83,47 @@ def _disabled_transport(ctx, transports, cmd_name):
     ctx.fail("Use 'ykman mode' to set the enabled USB interfaces.")
 
 
-def _run_cmd_for_serial(ctx, cmd, transports, serial, reader=None):
-    if reader:
-        readers = list(open_ccid(name_filter=reader))
-        n_keys = len(readers)
-        if n_keys == 0:
-            ctx.fail('No YubiKey detected!')
-        if n_keys > 1:
-            ctx.fail('Multiple YubiKeys detected.'
-                     'Use --device SERIAL to specify which one to use.')
-        reader = readers[0]
-        return YubiKey(Descriptor.from_driver(reader), reader)
-    else:
-        try:
-            return open_device(transports, serial=serial)
-        except FailedOpeningDeviceException:
-            try:  # Retry, any transport
-                dev = open_device(serial=serial)
-                if not dev.mode.transports & transports:
-                    if dev.config.usb_supported & transports:
-                        _disabled_transport(ctx, transports, cmd)
+def _run_cmd_for_serial(ctx, cmd, transports, serial):
+    readers = list(open_ccid(include='', exclude=READER_NAME_YK))
+    for reader in readers:
+        dev = YubiKey(Descriptor.from_driver(reader), reader)
+        if dev.serial == serial:
+            return dev
+    try:
+        return open_device(transports, serial=serial)
+    except FailedOpeningDeviceException:
+        try:  # Retry, any transport
+            dev = open_device(serial=serial)
+            if not dev.mode.transports & transports:
+                if dev.config.usb_supported & transports:
+                    _disabled_transport(ctx, transports, cmd)
                 else:
-                    ctx.fail("Command '{}' is not supported by this device."
-                             .format(cmd))
-            except FailedOpeningDeviceException:
-                ctx.fail(
-                    'Failed connecting to a YubiKey with '
-                    'serial: {}'.format(serial))
+                    ctx.fail(
+                        'Command {} is not supported by this device.'
+                        .format(cmd))
+        except Exception:
+            pass
+    ctx.fail('Failed connecting to a YubiKey with serial: {}'.format(serial))
 
 
-def _run_cmd_for_single(ctx, cmd, transports, reader=None):
-    if reader:
-        readers = list(open_ccid(name_filter=reader))
-        n_keys = len(readers)
-        if n_keys == 0:
-            ctx.fail('No YubiKey detected!')
-        if n_keys > 1:
-            ctx.fail('Multiple YubiKeys detected.'
-                     'Use --device SERIAL to specify which one to use.')
-        reader = readers[0]
-        return YubiKey(Descriptor.from_driver(reader), reader)
-    else:
-        try:
-            descriptors = get_descriptors()
-        except usb.core.NoBackendError:
-            ctx.fail('No PyUSB backend detected!')
-        n_keys = len(descriptors)
-        if n_keys == 0:
-            ctx.fail('No YubiKey detected!')
-        if n_keys > 1:
-            ctx.fail('Multiple YubiKeys detected.'
-                     ' Use --device SERIAL to specify which one to use.')
-        descriptor = descriptors[0]
-        if descriptor.mode.transports & transports:
+def _run_cmd_for_single(ctx, cmd, transports):
+    readers = list(open_ccid(include='', exclude=READER_NAME_YK))
+    try:
+        descriptors = get_descriptors()
+    except usb.core.NoBackendError:
+        ctx.fail('No PyUSB backend detected!')
+    n_keys = len(readers) + len(descriptors)
+    if n_keys == 0:
+        ctx.fail('No YubiKey detected!')
+    if n_keys > 1:
+        ctx.fail('Multiple YubiKeys detected.'
+                 ' Use --device SERIAL to specify which one to use.')
+    if readers:
+        return YubiKey(Descriptor.from_driver(readers[0]), readers[0])
+    if descriptors:
+        if descriptors[0].mode.transports & transports:
             try:
-                return descriptor.open_device(transports)
+                return descriptors[0].open_device(transports)
             except FailedOpeningDeviceException:
                 ctx.fail('Failed connecting to the YubiKey.')
         else:
@@ -148,8 +134,6 @@ def _run_cmd_for_single(ctx, cmd, transports, reader=None):
 @click.option('-v', '--version', is_flag=True, callback=print_version,
               expose_value=False, is_eager=True)
 @click.option('-d', '--device', type=int, metavar='SERIAL')
-@click.option('-r', '--reader', default=None,
-              help='Use av external smart card reader')
 @click.option('-l', '--log-level', default=None,
               type=UpperCaseChoice(ykman.logging_setup.LOG_LEVEL_NAMES),
               help='Enable logging at given verbosity level',
@@ -161,7 +145,7 @@ def _run_cmd_for_single(ctx, cmd, transports, reader=None):
               )
 @click.pass_context
 @click_skip_on_help
-def cli(ctx, device, log_level, log_file, reader):
+def cli(ctx, device, log_level, log_file):
     """
     Configure your YubiKey via the command line.
     """
@@ -176,9 +160,9 @@ def cli(ctx, device, log_level, log_file, reader):
     transports = getattr(subcmd, 'transports', TRANSPORT.usb_transports())
     if device is not None:
         dev = _run_cmd_for_serial(
-                ctx, subcmd.name, transports, device, reader=reader)
+                ctx, subcmd.name, transports, device)
     else:
-        dev = _run_cmd_for_single(ctx, subcmd.name, transports, reader=reader)
+        dev = _run_cmd_for_single(ctx, subcmd.name, transports)
 
     application = getattr(subcmd, 'application', None)
     if application and not dev.available & application:
@@ -229,6 +213,15 @@ def list_keys(ctx, serials):
         dev.close()
         if not descriptors and not skys:
             break
+    readers = list(open_ccid(include='', exclude=READER_NAME_YK))
+    for reader in readers:
+        dev = YubiKey(Descriptor.from_driver(reader), reader)
+        if dev.serial not in handled_serials:
+            click.echo('{} [{}]{}'.format(
+                    dev.device_name,
+                    dev.mode,
+                    ' Serial: {}'.format(dev.serial) if dev.serial else '')
+            )
 
 
 COMMANDS = (list_keys, info, mode, otp, openpgp, oath, piv, fido, config)
