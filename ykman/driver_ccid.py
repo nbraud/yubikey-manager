@@ -306,7 +306,7 @@ def open_devices(exclude=None):
             except Exception as e:
                 # Try with next reader.
                 logger.debug(
-                    'Failed to connect to reader %s', reader, exc_info=e)
+                    'Failed to connect to reader %s', reader)
         if try_again and kill_scdaemon():
             readers = try_again
         else:

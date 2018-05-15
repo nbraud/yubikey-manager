@@ -166,7 +166,7 @@ def cli(ctx, device, log_level, log_file):
 
     application = getattr(subcmd, 'application', None)
     if application and not dev.available & application:
-        ctx.fail("Command: '{}' is not accessible for this configuration.")
+        ctx.fail('{} command is currently not accessible.'.format(subcmd.name))
 
     ctx.obj['dev'] = dev
     ctx.call_on_close(dev.close)
