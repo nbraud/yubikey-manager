@@ -200,6 +200,9 @@ def list_keys(ctx, serials):
     List connected YubiKeys.
     """
     all_descriptors = get_descriptors()
+    logger.debug('DESCRIPTORS:')
+    for d in all_descriptors:
+        logger.debug(d.fingerprint)
     descriptors = [d for d in all_descriptors if d.key_type != YUBIKEY.SKY]
     skys = len(all_descriptors) - len(descriptors)
     handled_serials = set()
