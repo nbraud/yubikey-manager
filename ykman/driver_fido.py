@@ -95,6 +95,7 @@ def descriptor_filter(desc):
 
 def open_devices():
     for dev in CtapHidDevice.list_devices(descriptor_filter):
+        logger.debug('list devices from CTAPHID DEVICE ' + str(dev))
         try:
             yield FidoDriver(dev)
         except Exception as e:

@@ -207,6 +207,7 @@ def list_keys(ctx, serials):
     skys = len(all_descriptors) - len(descriptors)
     handled_serials = set()
     for dev in list_devices():
+        logger.debug('DEVICES from list_devices: ' + str(dev))
         handled = False
         if skys > 0 and dev.key_type == YUBIKEY.SKY:
             skys -= 1
