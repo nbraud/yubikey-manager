@@ -91,6 +91,9 @@ class INS(IntEnum):  # noqa: N801
     TERMINATE = 0xe6
     ACTIVATE = 0x44
     PUT_DATA = 0xda
+    GET_ATTESTATION = 0xfb
+    SEND_REMAINING = 0xc0
+    SELECT_DATA = 0xa5
 
 
 PinRetries = namedtuple('PinRetries', ['pin', 'reset', 'admin'])
@@ -124,6 +127,23 @@ class OpgpController(object):
                 self._driver.send_apdu(0, INS.ACTIVATE, 0, 0)
                 return self._driver.send_apdu(cl, ins, p1, p2, data, check)
             raise
+
+    def send_cmd(self, cl, ins, p1=0, p2=0, data=b'', check=SW.OK):
+        while len(data) > 0xff:
+            self._driver.send_apdu(cl, ins, p1, p2, data[:0xff])
+            data = data[0xff:]
+        resp, sw = self._driver.send_apdu(0, ins, p1, p2, data, check=None)
+
+        while (sw >> 8) == SW.MORE_DATA:
+            more, sw = self._driver.send_apdu(
+                0, INS.SEND_REMAINING, 0, 0, b'', check=None)
+            resp += more
+
+        if check is None:
+            return resp, sw
+        elif sw != check:
+            raise APDUError(resp, sw)
+        return resp
 
     def _read_version(self):
         bcd_hex = b2a_hex(self.send_apdu(0, INS.GET_VERSION, 0, 0))
@@ -180,3 +200,13 @@ class OpgpController(object):
         self._verify(PW3, pin)
         self.send_apdu(0, INS.SET_PIN_RETRIES, 0, 0,
                        bytes(bytearray([pw1_tries, pw2_tries, pw3_tries])))
+
+    def attest(self, key_slot, pin):
+        self._verify(PW1, pin)
+        self.send_apdu(0x80, INS.GET_ATTESTATION, key_slot.key_position(), 0)
+        self.send_cmd(
+            0, INS.SELECT_DATA, key_slot.cert_position(),
+            0x04, data=bytes(bytearray.fromhex('0660045C027F21')))
+        data = self.send_cmd(
+            0, INS.GET_DATA, KEY_SLOT.ATTESTATION.cert_position(), 0x21)
+        return x509.load_der_x509_certificate(data, default_backend())

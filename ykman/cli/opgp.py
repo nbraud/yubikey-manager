@@ -211,4 +211,38 @@ def set_pin_retries(ctx, pw_attempts, admin_pin, force):
         echo_default_pins()
 
 
+@openpgp.command()
+@click.pass_context
+@click.option('-P', '--pin', help='PIN code.')
+@click_format_option
+@click.argument(
+    'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG']),
+    callback=lambda c, p, v: KEY_SLOT(v))
+@click.argument('certificate', type=click.File('wb'), metavar='CERTIFICATE')
+def attest(ctx, key, certificate, pin, format):
+    """
+    Generate a attestation certificate for a key.
+
+    Attestation is used to show that an asymmetric key was generated on the
+    YubiKey and therefore doesn't exist outside the device.
+
+    \b
+    KEY         Key slot to attest (sig, enc, aut).
+    CERTIFICATE File to write attestation certificate to. Use '-' to use stdout.
+    """
+
+    controller = ctx.obj['controller']
+
+    if not pin:
+        pin = click.prompt(
+            'Enter PIN', default='', hide_input=True,
+            show_default=False, err=True)
+
+    touch_policy = controller.get_touch(KEY_SLOT.ATTESTATION)
+    if touch_policy in [TOUCH_MODE.ON, TOUCH_MODE.FIXED]:
+        click.echo('Touch your YubiKey...')
+    cert = controller.attest(key, pin)
+    certificate.write(cert.public_bytes(encoding=format))
+
+
 openpgp.transports = TRANSPORT.CCID
