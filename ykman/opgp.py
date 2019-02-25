@@ -30,16 +30,49 @@ from __future__ import absolute_import
 import six
 from .util import AID
 from .driver_ccid import (APDUError, SW, GP_INS_SELECT)
-from enum import IntEnum, unique
+from enum import Enum, IntEnum, unique
 from binascii import b2a_hex
 from collections import namedtuple
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 
 
 @unique
-class KEY_SLOT(IntEnum):  # noqa: N801
-    SIGNATURE = 0xd6
-    ENCRYPTION = 0xd7
-    AUTHENTICATION = 0xd8
+class KEY_SLOT(Enum):  # noqa: N801
+    SIGNATURE = 'SIG'
+    ENCRYPTION = 'ENC'
+    AUTHENTICATION = 'AUT'
+    ATTESTATION = 'ATT'
+
+    def key_position(self):
+        if self == KEY_SLOT.SIGNATURE:
+            return 0x01
+        if self == KEY_SLOT.ENCRYPTION:
+            return 0x02
+        if self == KEY_SLOT.AUTHENTICATION:
+            return 0x03
+        if self == KEY_SLOT.ATTESTATION:
+            return 0x04
+
+    def touch_position(self):
+        if self == KEY_SLOT.SIGNATURE:
+            return 0xd6
+        if self == KEY_SLOT.ENCRYPTION:
+            return 0xd7
+        if self == KEY_SLOT.AUTHENTICATION:
+            return 0xd8
+        if self == KEY_SLOT.ATTESTATION:
+            return 0xd9
+
+    def cert_position(self):
+        if self == KEY_SLOT.SIGNATURE:
+            return 0x02
+        if self == KEY_SLOT.ENCRYPTION:
+            return 0x01
+        if self == KEY_SLOT.AUTHENTICATION:
+            return 0x00
+        if self == KEY_SLOT.ATTESTATION:
+            return 0x7f
 
 
 @unique
@@ -127,14 +160,14 @@ class OpgpController(object):
     def get_touch(self, key_slot):
         if self.version < (4, 2, 0):
             raise ValueError('Touch policy is available on YubiKey 4 or later.')
-        data = self.send_apdu(0, INS.GET_DATA, 0, key_slot)
+        data = self.send_apdu(0, INS.GET_DATA, 0, key_slot.touch_position())
         return TOUCH_MODE(six.indexbytes(data, 0))
 
-    def set_touch(self, key_slot, mode, pin):
+    def set_touch(self, key_slot, mode, admin_pin):
         if self.version < (4, 2, 0):
             raise ValueError('Touch policy is available on YubiKey 4 or later.')
-        self._verify(PW3, pin)
-        self.send_apdu(0, INS.PUT_DATA, 0, key_slot,
+        self._verify(PW3, admin_pin)
+        self.send_apdu(0, INS.PUT_DATA, 0, key_slot.touch_position(),
                        bytes(bytearray([mode, TOUCH_METHOD_BUTTON])))
 
     def set_pin_retries(self, pw1_tries, pw2_tries, pw3_tries, pin):

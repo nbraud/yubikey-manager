@@ -32,23 +32,12 @@ import click
 from ..util import TRANSPORT
 from ..opgp import OpgpController, KEY_SLOT, TOUCH_MODE
 from ..driver_ccid import APDUError, SW
-from .util import click_force_option, click_postpone_execution
+from .util import (
+    click_force_option, click_format_option, click_postpone_execution,
+    UpperCaseChoice)
 
 
 logger = logging.getLogger(__name__)
-
-
-KEY_NAMES = dict(
-    sig=KEY_SLOT.SIGNATURE,
-    enc=KEY_SLOT.ENCRYPTION,
-    aut=KEY_SLOT.AUTHENTICATION
-)
-
-MODE_NAMES = dict(
-    off=TOUCH_MODE.OFF,
-    on=TOUCH_MODE.ON,
-    fixed=TOUCH_MODE.FIXED
-)
 
 
 def one_of(data):
@@ -116,17 +105,25 @@ def info(ctx):
     click.echo('PIN tries remaining: {}'.format(retries.pin))
     click.echo('Reset code tries remaining: {}'.format(retries.reset))
     click.echo('Admin PIN tries remaining: {}'.format(retries.admin))
-    click.echo()
-    click.echo('Touch policies')
-    click.echo(
-        'Signature key           {.name}'.format(
-            controller.get_touch(KEY_SLOT.SIGNATURE)))
-    click.echo(
-        'Encryption key          {.name}'.format(
-            controller.get_touch(KEY_SLOT.ENCRYPTION)))
-    click.echo(
-        'Authentication key      {.name}'.format(
-            controller.get_touch(KEY_SLOT.AUTHENTICATION)))
+    # Touch only available on YK4 and later
+    if controller.version >= (4, 2, 6):
+        click.echo()
+        click.echo('Touch policies')
+        click.echo(
+            'Signature key           {.name}'.format(
+                controller.get_touch(KEY_SLOT.SIGNATURE)))
+        click.echo(
+            'Encryption key          {.name}'.format(
+                controller.get_touch(KEY_SLOT.ENCRYPTION)))
+        click.echo(
+            'Authentication key      {.name}'.format(
+                controller.get_touch(KEY_SLOT.AUTHENTICATION)))
+        try:
+            click.echo(
+                'Attestation key         {.name}'.format(
+                    controller.get_touch(KEY_SLOT.ATTESTATION)))
+        except APDUError:
+            logger.debug('No attestation key slot found')
 
 
 @openpgp.command()
@@ -154,10 +151,12 @@ def echo_default_pins():
 
 
 @openpgp.command()
-@click.argument('key', metavar='KEY', type=click.Choice(sorted(KEY_NAMES)),
-                callback=lambda c, p, k: KEY_NAMES.get(k))
-@click.argument('policy', metavar='POLICY', type=click.Choice(sorted(MODE_NAMES)),
-                callback=lambda c, p, k: MODE_NAMES.get(k))
+@click.argument(
+    'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG', 'ATT']),
+    callback=lambda c, p, v: KEY_SLOT(v))
+@click.argument(
+    'policy', metavar='POLICY', type=UpperCaseChoice(['ON', 'OFF', 'FIXED']),
+    callback=lambda c, p, v: TOUCH_MODE[v])
 @click.option('--admin-pin', required=False, metavar='PIN',
               help='Admin PIN for OpenPGP.')
 @click_force_option
@@ -167,7 +166,7 @@ def touch(ctx, key, policy, admin_pin, force):
     Manage touch policy for OpenPGP keys.
 
     \b
-    KEY     Key slot to set (sig, enc or aut).
+    KEY     Key slot to set (sig, enc, aut or att).
     POLICY  Touch policy to set (on, off or fixed).
     """
     controller = ctx.obj['controller']
