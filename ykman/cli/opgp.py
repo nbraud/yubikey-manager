@@ -241,7 +241,7 @@ def attest(ctx, key, certificate, pin, format):
     touch_policy = controller.get_touch(KEY_SLOT.ATTESTATION)
     if touch_policy in [TOUCH_MODE.ON, TOUCH_MODE.FIXED]:
         click.echo('Touch your YubiKey...')
-    cert = controller.attest(key, pin)
+    cert = controller.attest(key, pin.encode('utf-8'))
     certificate.write(cert.public_bytes(encoding=format))
 
 
