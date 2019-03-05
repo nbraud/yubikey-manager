@@ -238,7 +238,11 @@ def attest(ctx, key, certificate, pin, format):
             'Enter PIN', default='', hide_input=True,
             show_default=False, err=True)
 
-    cert = controller.read_certificate(key)
+    try:
+        cert = controller.read_certificate(key)
+    except ValueError:
+        cert = None
+
     if not cert or click.confirm(
         'There is already data in the certificate slot for {}, '
         'do you want to overwrite it??'.format(key.name)):
