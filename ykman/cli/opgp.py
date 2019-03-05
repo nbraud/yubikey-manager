@@ -278,4 +278,26 @@ def export_certificate(ctx, key, format, certificate):
     certificate.write(cert.public_bytes(encoding=format))
 
 
+@openpgp.command()
+@click.option('--admin-pin', required=False, metavar='PIN',
+              help='Admin PIN for OpenPGP.')
+@click.pass_context
+@click.argument(
+    'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG', 'ATT']),
+    callback=lambda c, p, v: KEY_SLOT(v))
+def delete_certificate(ctx, key, admin_pin):
+    """
+    Delete a certificate.
+
+    Delete a OpenPGP Cardholder certificate.
+
+    \b
+    KEY         Key slot to delete certificate from (sig, enc, aut, or att).
+    """
+    controller = ctx.obj['controller']
+    if admin_pin is None:
+        admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
+    cert = controller.delete_certificate(key, admin_pin.encode('utf-8'))
+
+
 openpgp.transports = TRANSPORT.CCID
