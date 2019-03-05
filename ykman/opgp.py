@@ -201,6 +201,14 @@ class OpgpController(object):
         self.send_apdu(0, INS.SET_PIN_RETRIES, 0, 0,
                        bytes(bytearray([pw1_tries, pw2_tries, pw3_tries])))
 
+    def read_certificate(self, key_slot):
+        self.send_cmd(
+            0, INS.SELECT_DATA, key_slot.cert_position(),
+            0x04, data=bytes(bytearray.fromhex('0660045C027F21')))
+        data = self.send_cmd(
+            0, INS.GET_DATA, KEY_SLOT.ATTESTATION.cert_position(), 0x21)
+        return x509.load_der_x509_certificate(data, default_backend())
+
     def attest(self, key_slot, pin):
         self._verify(PW1, pin)
         self.send_apdu(0x80, INS.GET_ATTESTATION, key_slot.key_position(), 0)
