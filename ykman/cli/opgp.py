@@ -249,4 +249,29 @@ def attest(ctx, key, certificate, pin, format):
         certificate.write(cert.public_bytes(encoding=format))
 
 
+@openpgp.command()
+@click.pass_context
+@click.argument(
+    'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG', 'ATT']),
+    callback=lambda c, p, v: KEY_SLOT(v))
+@click_format_option
+@click.argument('certificate', type=click.File('wb'), metavar='CERTIFICATE')
+def export_certificate(ctx, key, format, certificate):
+    """
+    Export a X.509 certificate.
+
+    Read out an OpenPGP Cardholder certificate.
+
+    \b
+    KEY         Key slot to read from (sig, enc, aut, or att).
+    CERTIFICATE File to write certificate to. Use '-' to use stdout.
+    """
+    controller = ctx.obj['controller']
+    try:
+        cert = controller.read_certificate(key)
+    except ValueError:
+        ctx.fail('Failed to read certificate from {}'.format(key.name))
+    certificate.write(cert.public_bytes(encoding=format))
+
+
 openpgp.transports = TRANSPORT.CCID

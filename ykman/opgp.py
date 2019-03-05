@@ -72,7 +72,7 @@ class KEY_SLOT(Enum):  # noqa: N801
         if self == KEY_SLOT.AUTHENTICATION:
             return 0x00
         if self == KEY_SLOT.ATTESTATION:
-            return 0x7f
+            return 0x03
 
 
 @unique
@@ -81,6 +81,9 @@ class TOUCH_MODE(IntEnum):  # noqa: N801
     ON = 0x01
     FIXED = 0x02
 
+@unique
+class TAG(IntEnum):  # noqa: N801
+    CARDHOLDER_CERTIFICATE = 0x7f
 
 @unique
 class INS(IntEnum):  # noqa: N801
@@ -206,7 +209,7 @@ class OpgpController(object):
             0, INS.SELECT_DATA, key_slot.cert_position(),
             0x04, data=bytes(bytearray.fromhex('0660045C027F21')))
         data = self.send_cmd(
-            0, INS.GET_DATA, KEY_SLOT.ATTESTATION.cert_position(), 0x21)
+            0, INS.GET_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21)
         return x509.load_der_x509_certificate(data, default_backend())
 
     def attest(self, key_slot, pin):
@@ -216,5 +219,5 @@ class OpgpController(object):
             0, INS.SELECT_DATA, key_slot.cert_position(),
             0x04, data=bytes(bytearray.fromhex('0660045C027F21')))
         data = self.send_cmd(
-            0, INS.GET_DATA, KEY_SLOT.ATTESTATION.cert_position(), 0x21)
+            0, INS.GET_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21)
         return x509.load_der_x509_certificate(data, default_backend())
