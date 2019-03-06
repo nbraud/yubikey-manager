@@ -319,14 +319,18 @@ def import_certificate(ctx, key, cert, admin_pin):
     CERTIFICATE File containing the certificate. Use '-' to use stdin.
     """
     controller = ctx.obj['controller']
+
     if admin_pin is None:
         admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
-    data = cert.read()
-    certs = parse_certificates(data, password=None)
-    # TODO check len 1
+
+    try:
+        certs = parse_certificates(cert.read(), password=None)
+    except Exception:
+        ctx.fail('Failed to parse certificate.')
+    if len(certs) != 1:
+        ctx.fail('Can only import one certificate')
 
     controller.import_certificate(key, certs[0], admin_pin.encode('utf-8'))
-
 
 
 openpgp.transports = TRANSPORT.CCID
