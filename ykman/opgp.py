@@ -35,6 +35,8 @@ from binascii import b2a_hex
 from collections import namedtuple
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import Encoding
+
 
 
 @unique
@@ -133,7 +135,7 @@ class OpgpController(object):
 
     def send_cmd(self, cl, ins, p1=0, p2=0, data=b'', check=SW.OK):
         while len(data) > 0xff:
-            self._driver.send_apdu(cl, ins, p1, p2, data[:0xff])
+            self._driver.send_apdu(0x10, ins, p1, p2, data[:0xff])
             data = data[0xff:]
         resp, sw = self._driver.send_apdu(0, ins, p1, p2, data, check=None)
 
@@ -213,6 +215,15 @@ class OpgpController(object):
         if not data:
             raise ValueError('No certificate found!')
         return x509.load_der_x509_certificate(data, default_backend())
+
+    def import_certificate(self, key_slot, certificate, admin_pin):
+        self._verify(PW3, admin_pin)
+        cert_data = certificate.public_bytes(Encoding.DER)
+        self.send_cmd(
+            0, INS.SELECT_DATA, key_slot.cert_position(),
+            0x04, data=bytes(bytearray.fromhex('0660045C027F21')))
+        self.send_cmd(
+            0, INS.PUT_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21, data=cert_data)
 
     def delete_certificate(self, key_slot, admin_pin):
         self._verify(PW3, admin_pin)

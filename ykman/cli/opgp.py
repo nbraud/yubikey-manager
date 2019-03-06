@@ -29,7 +29,7 @@ from __future__ import absolute_import
 
 import logging
 import click
-from ..util import TRANSPORT
+from ..util import TRANSPORT, parse_certificates
 from ..opgp import OpgpController, KEY_SLOT, TOUCH_MODE
 from ..driver_ccid import APDUError, SW
 from .util import (
@@ -297,7 +297,36 @@ def delete_certificate(ctx, key, admin_pin):
     controller = ctx.obj['controller']
     if admin_pin is None:
         admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
-    cert = controller.delete_certificate(key, admin_pin.encode('utf-8'))
+    controller.delete_certificate(key, admin_pin.encode('utf-8'))
+
+
+@openpgp.command()
+@click.option('--admin-pin', required=False, metavar='PIN',
+              help='Admin PIN for OpenPGP.')
+@click.pass_context
+@click.argument(
+    'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG', 'ATT']),
+    callback=lambda c, p, v: KEY_SLOT(v))
+@click.argument('cert', type=click.File('rb'), metavar='CERTIFICATE')
+def import_certificate(ctx, key, cert, admin_pin):
+    """
+    Import a certificate.
+
+    Import a OpenPGP Cardholder certificate.
+
+    \b
+    KEY         Key slot to import certificate to (sig, enc, aut, or att).
+    CERTIFICATE File containing the certificate. Use '-' to use stdin.
+    """
+    controller = ctx.obj['controller']
+    if admin_pin is None:
+        admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
+    data = cert.read()
+    certs = parse_certificates(data, password=None)
+    # TODO check len 1
+
+    controller.import_certificate(key, certs[0], admin_pin.encode('utf-8'))
+
 
 
 openpgp.transports = TRANSPORT.CCID
