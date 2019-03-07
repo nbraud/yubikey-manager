@@ -29,7 +29,7 @@ from __future__ import absolute_import
 
 import logging
 import click
-from ..util import TRANSPORT, parse_certificates
+from ..util import TRANSPORT, parse_certificates, parse_private_key
 from ..opgp import OpgpController, KEY_SLOT, TOUCH_MODE
 from ..driver_ccid import APDUError, SW
 from .util import (
@@ -331,6 +331,32 @@ def import_certificate(ctx, key, cert, admin_pin):
         ctx.fail('Can only import one certificate')
 
     controller.import_certificate(key, certs[0], admin_pin.encode('utf-8'))
+
+
+@openpgp.command()
+@click.option('--admin-pin', required=False, metavar='PIN',
+              help='Admin PIN for OpenPGP.')
+@click.pass_context
+@click.argument('private-key', type=click.File('rb'), metavar='PRIVATE-KEY')
+def import_attestation_key(ctx, private_key, admin_pin):
+    """
+    Import a private attestation key.
+
+    Import a private key for OpenPGP attestation.
+
+    \b
+    PRIVATE-KEY File containing the private key. Use '-' to use stdin.
+    """
+    controller = ctx.obj['controller']
+
+    if admin_pin is None:
+        admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
+    try:
+        private_key = parse_private_key(private_key.read(), password=None)
+    except Exception:
+        ctx.fail('Failed to parse private key.')
+
+    controller.import_attestation_key(private_key, admin_pin.encode('utf-8'))
 
 
 openpgp.transports = TRANSPORT.CCID

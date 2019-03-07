@@ -28,12 +28,14 @@
 from __future__ import absolute_import
 
 import six
+import struct
 from .util import AID
 from .driver_ccid import (APDUError, SW, GP_INS_SELECT)
 from enum import Enum, IntEnum, unique
 from binascii import b2a_hex
 from collections import namedtuple
 from cryptography import x509
+from cryptography.utils import int_to_bytes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import Encoding
 
@@ -224,6 +226,32 @@ class OpgpController(object):
             0x04, data=bytes(bytearray.fromhex('0660045C027F21')))
         self.send_cmd(
             0, INS.PUT_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21, data=cert_data)
+
+    def import_attestation_key(self, private_key, admin_pin):
+        self._verify(PW3, admin_pin)
+
+        # Set key attributes
+        data = struct.pack(">BHHB", 0x01, private_key.key_size, 32, 0)
+        self.send_cmd(0, INS.PUT_DATA, 0, 0xda, data=data)
+
+        # Format data
+        priv = private_key.private_numbers()
+        ln = private_key.key_size // 8 // 2
+        data = bytes(bytearray.fromhex('B603840181'))
+        data += b'\x7f\x48\x08\x91\x03\x92\x81\x80\x93\x81\x80\x5f\x48\x82\x01\x03\x01\x00\x01'
+        data += int_to_bytes(priv.p, ln)
+        data += int_to_bytes(priv.q, ln)
+        data_ln = len(data)
+
+        if data_ln <= 128:
+            der_len = [length]
+        elif data_ln <= 255:
+            der_len = [0x81, length]
+        else:
+            der_len = [0x82, (data_ln >> 8) & 0xff, data_ln & 0xff]
+
+        data = b'\x4d' + bytearray(der_len) + data
+        self.send_cmd(0, 0xdb, 0x3f, 0xff, data=data)
 
     def delete_certificate(self, key_slot, admin_pin):
         self._verify(PW3, admin_pin)
