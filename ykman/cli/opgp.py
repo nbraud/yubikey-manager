@@ -262,9 +262,7 @@ def attest(ctx, key, certificate, pin, format):
 @click.argument('certificate', type=click.File('wb'), metavar='CERTIFICATE')
 def export_certificate(ctx, key, format, certificate):
     """
-    Export a X.509 certificate.
-
-    Read out an OpenPGP Cardholder certificate.
+    Export an OpenPGP Cardholder certificate.
 
     \b
     KEY         Key slot to read from (sig, enc, aut, or att).
@@ -287,9 +285,7 @@ def export_certificate(ctx, key, format, certificate):
     callback=lambda c, p, v: KEY_SLOT(v))
 def delete_certificate(ctx, key, admin_pin):
     """
-    Delete a certificate.
-
-    Delete a OpenPGP Cardholder certificate.
+    Delete an OpenPGP Cardholder certificate.
 
     \b
     KEY         Key slot to delete certificate from (sig, enc, aut, or att).
@@ -310,9 +306,7 @@ def delete_certificate(ctx, key, admin_pin):
 @click.argument('cert', type=click.File('rb'), metavar='CERTIFICATE')
 def import_certificate(ctx, key, cert, admin_pin):
     """
-    Import a certificate.
-
-    Import a OpenPGP Cardholder certificate.
+    Import an OpenPGP Cardholder certificate.
 
     \b
     KEY         Key slot to import certificate to (sig, enc, aut, or att).
@@ -357,6 +351,24 @@ def import_attestation_key(ctx, private_key, admin_pin):
         ctx.fail('Failed to parse private key.')
 
     controller.import_attestation_key(private_key, admin_pin.encode('utf-8'))
+
+@openpgp.command()
+@click.option('--admin-pin', required=False, metavar='PIN',
+              help='Admin PIN for OpenPGP.')
+@click.pass_context
+def delete_attestation_key(ctx, admin_pin):
+    """
+    Delete the attestation key.
+
+    Delete the OpenPGP attestation key.
+    """
+    controller = ctx.obj['controller']
+
+    if admin_pin is None:
+        admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
+
+    controller.delete_attestation_key(admin_pin.encode('utf-8'))
+
 
 
 openpgp.transports = TRANSPORT.CCID

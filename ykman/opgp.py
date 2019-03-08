@@ -29,6 +29,7 @@ from __future__ import absolute_import
 
 import six
 import struct
+import logging
 from .util import AID
 from .driver_ccid import (APDUError, SW, GP_INS_SELECT)
 from enum import Enum, IntEnum, unique
@@ -38,8 +39,10 @@ from cryptography import x509
 from cryptography.utils import int_to_bytes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.hazmat.primitives.asymmetric import rsa, ec
+from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1, SECP384R1, SECP521R1
 
-
+logger = logging.getLogger(__name__)
 
 @unique
 class KEY_SLOT(Enum):  # noqa: N801
@@ -227,31 +230,78 @@ class OpgpController(object):
         self.send_cmd(
             0, INS.PUT_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21, data=cert_data)
 
-    def import_attestation_key(self, private_key, admin_pin):
+    def _get_key_attributes(self, key):
+        if isinstance(key, rsa.RSAPrivateKey):
+            return struct.pack(">BHHB", 0x01, key.key_size, 32, 0)
+        if isinstance(key, ec.EllipticCurvePrivateKey):
+            return b'' + int_to_bytes(
+                self._get_opgp_algo_id_from_ec(key)) + bytes(
+                        bytearray.fromhex(self._get_oid_from_ec(key)))
+
+    def _get_oid_from_ec(self, key):
+        curve = key.curve.name
+        if curve == 'secp384r1':
+            return '2B81040022'
+        if curve == 'secp256r1':
+            return '2A8648CE3D030107'
+        if curve == 'secp521r1':
+            return '2B81040023'
+        if curve == 'x25519':
+            return '2B060104019755010501'
+        return ValueError('No OID for curve')
+
+    def _get_opgp_algo_id_from_ec(self, key):
+        curve = key.curve.name
+        if curve == 'secp384r1':
+            return 0x13
+        if curve == 'secp256r1':
+            return 0x13
+        if curve == 'secp521r1':
+            return 0x13
+        if curve == 'x25519':
+            return 0x16
+        return ValueError('No OpenPGP Algo ID for curve')
+
+    def _get_key_data(self, key):
+
+        def _der_len(data):
+            data_ln = len(data)
+            if data_ln <= 128:
+                return data_ln
+            elif data_ln <= 255:
+                return [0x81, data_ln]
+            else:
+                return [0x82, (data_ln >> 8) & 0xff, data_ln & 0xff]
+
+        private_numbers = key.private_numbers()
+        slot = bytes(bytearray.fromhex('B603840181'))
+        data = slot
+        if isinstance(key, rsa.RSAPrivateKey):
+            ln = key.key_size // 8 // 2
+            data += b'\x7f\x48\x08\x91\x03\x92\x81\x80\x93\x81\x80\x5f\x48\x82\x01\x03\x01\x00\x01'
+            data += int_to_bytes(private_numbers.p, ln)
+            data += int_to_bytes(private_numbers.q, ln)
+            return b'\x4d' + bytearray(_der_len(data)) + data
+        elif isinstance(key, ec.EllipticCurvePrivateKey):
+            ln = key.key_size // 8
+            privkey = b'' + int_to_bytes(private_numbers.private_value, ln)
+            data += b'\x7f\x48\x02\x92' + bytes([ln])
+            data += b'\x5f\x48' + bytes([ln]) + privkey
+            return b'\x4d' + bytes([len(data)]) + data
+
+
+    def import_attestation_key(self, key, admin_pin):
         self._verify(PW3, admin_pin)
-
-        # Set key attributes
-        data = struct.pack(">BHHB", 0x01, private_key.key_size, 32, 0)
+        data = self._get_key_attributes(key)
         self.send_cmd(0, INS.PUT_DATA, 0, 0xda, data=data)
-
-        # Format data
-        priv = private_key.private_numbers()
-        ln = private_key.key_size // 8 // 2
-        data = bytes(bytearray.fromhex('B603840181'))
-        data += b'\x7f\x48\x08\x91\x03\x92\x81\x80\x93\x81\x80\x5f\x48\x82\x01\x03\x01\x00\x01'
-        data += int_to_bytes(priv.p, ln)
-        data += int_to_bytes(priv.q, ln)
-        data_ln = len(data)
-
-        if data_ln <= 128:
-            der_len = [length]
-        elif data_ln <= 255:
-            der_len = [0x81, length]
-        else:
-            der_len = [0x82, (data_ln >> 8) & 0xff, data_ln & 0xff]
-
-        data = b'\x4d' + bytearray(der_len) + data
+        data = self._get_key_data(key)
         self.send_cmd(0, 0xdb, 0x3f, 0xff, data=data)
+
+    def delete_attestation_key(self, admin_pin):
+        self._verify(PW3, admin_pin)
+        # Change the key attributes for the attestation key twice, that will wipe it.
+        self.send_cmd(0, INS.PUT_DATA, 0, 0xda, data=struct.pack(">BHHB", 0x01, 2048, 32, 0))
+        self.send_cmd(0, INS.PUT_DATA, 0, 0xda, data=struct.pack(">BHHB", 0x01, 4096, 32, 0))
 
     def delete_certificate(self, key_slot, admin_pin):
         self._verify(PW3, admin_pin)
