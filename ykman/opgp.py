@@ -234,9 +234,10 @@ class OpgpController(object):
         if isinstance(key, rsa.RSAPrivateKey):
             return struct.pack(">BHHB", 0x01, key.key_size, 32, 0)
         if isinstance(key, ec.EllipticCurvePrivateKey):
-            return b'' + int_to_bytes(
+            return int_to_bytes(
                 self._get_opgp_algo_id_from_ec(key)) + bytes(
-                        bytearray.fromhex(self._get_oid_from_ec(key)))
+                    bytearray.fromhex(self._get_oid_from_ec(key)))
+        raise ValueError('Not a valid private key!')
 
     def _get_oid_from_ec(self, key):
         curve = key.curve.name
@@ -248,46 +249,43 @@ class OpgpController(object):
             return '2B81040023'
         if curve == 'x25519':
             return '2B060104019755010501'
-        return ValueError('No OID for curve')
+        raise ValueError('No OID for curve!')
 
     def _get_opgp_algo_id_from_ec(self, key):
         curve = key.curve.name
-        if curve == 'secp384r1':
-            return 0x13
-        if curve == 'secp256r1':
-            return 0x13
-        if curve == 'secp521r1':
+        if curve in ['secp384r1', 'secp256r1', 'secp521r1']:
             return 0x13
         if curve == 'x25519':
             return 0x16
-        return ValueError('No OpenPGP Algo ID for curve')
+        raise ValueError('No Algo ID for curve!')
 
     def _get_key_data(self, key):
 
         def _der_len(data):
-            data_ln = len(data)
-            if data_ln <= 128:
-                return data_ln
-            elif data_ln <= 255:
-                return [0x81, data_ln]
+            ln = len(data)
+            if ln <= 128:
+                res = [ln]
+            elif ln <= 255:
+                res = [0x81, ln]
             else:
-                return [0x82, (data_ln >> 8) & 0xff, data_ln & 0xff]
+                res = [0x82, (ln >> 8) & 0xff, ln & 0xff]
+            return bytearray(res)
 
         private_numbers = key.private_numbers()
-        slot = bytes(bytearray.fromhex('B603840181'))
-        data = slot
+        data = bytes(bytearray.fromhex('B603840181'))
+
         if isinstance(key, rsa.RSAPrivateKey):
             ln = key.key_size // 8 // 2
             data += b'\x7f\x48\x08\x91\x03\x92\x81\x80\x93\x81\x80\x5f\x48\x82\x01\x03\x01\x00\x01'
             data += int_to_bytes(private_numbers.p, ln)
             data += int_to_bytes(private_numbers.q, ln)
-            return b'\x4d' + bytearray(_der_len(data)) + data
+            return b'\x4d' + _der_len(data) + data
         elif isinstance(key, ec.EllipticCurvePrivateKey):
             ln = key.key_size // 8
-            privkey = b'' + int_to_bytes(private_numbers.private_value, ln)
-            data += b'\x7f\x48\x02\x92' + bytes([ln])
-            data += b'\x5f\x48' + bytes([ln]) + privkey
-            return b'\x4d' + bytes([len(data)]) + data
+            privkey = int_to_bytes(private_numbers.private_value, ln)
+            data += b'\x7f\x48\x02\x92' + _der_len(privkey)
+            data += b'\x5f\x48' + _der_len(privkey) + privkey
+            return b'\x4d' + _der_len(data) + data
 
 
     def import_attestation_key(self, key, admin_pin):

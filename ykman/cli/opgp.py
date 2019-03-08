@@ -244,14 +244,17 @@ def attest(ctx, key, certificate, pin, format):
         cert = None
 
     if not cert or click.confirm(
-        'There is already data in the certificate slot for {}, '
-        'do you want to overwrite it??'.format(key.name)):
+        'There is already data stored in the certificate slot for {}, '
+        'do you want to overwrite it?'.format(key.name)):
         touch_policy = controller.get_touch(KEY_SLOT.ATTESTATION)
         if touch_policy in [TOUCH_MODE.ON, TOUCH_MODE.FIXED]:
             click.echo('Touch your YubiKey...')
-        cert = controller.attest(key, pin.encode('utf-8'))
-        certificate.write(cert.public_bytes(encoding=format))
-
+        try:
+            cert = controller.attest(key, pin.encode('utf-8'))
+            certificate.write(cert.public_bytes(encoding=format))
+        except Exception as e:
+            logger.debug('Failed to attest', exc_info=e)
+            ctx.fail('Attestation failed')
 
 @openpgp.command()
 @click.pass_context
@@ -293,8 +296,11 @@ def delete_certificate(ctx, key, admin_pin):
     controller = ctx.obj['controller']
     if admin_pin is None:
         admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
-    controller.delete_certificate(key, admin_pin.encode('utf-8'))
-
+    try:
+        controller.delete_certificate(key, admin_pin.encode('utf-8'))
+    except Exception as e:
+        logger.debug('Failed to delete ', exc_info=e)
+        ctx.fail('Failed to delete certificate.')
 
 @openpgp.command()
 @click.option('--admin-pin', required=False, metavar='PIN',
@@ -319,12 +325,16 @@ def import_certificate(ctx, key, cert, admin_pin):
 
     try:
         certs = parse_certificates(cert.read(), password=None)
-    except Exception:
+    except Exception as e:
+        logger.debug('Failed to parse', exc_info=e)
         ctx.fail('Failed to parse certificate.')
     if len(certs) != 1:
-        ctx.fail('Can only import one certificate')
-
-    controller.import_certificate(key, certs[0], admin_pin.encode('utf-8'))
+        ctx.fail('Can only import one certificate.')
+    try:
+        controller.import_certificate(key, certs[0], admin_pin.encode('utf-8'))
+    except Exception as e:
+        logger.debug('Failed to import', exc_info=e)
+        ctx.fail('Failed to import certificate')
 
 
 @openpgp.command()
@@ -347,10 +357,15 @@ def import_attestation_key(ctx, private_key, admin_pin):
         admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
     try:
         private_key = parse_private_key(private_key.read(), password=None)
-    except Exception:
+    except Exception as e:
+        logger.debug('Failed to parse', exc_info=e)
         ctx.fail('Failed to parse private key.')
+    try:
+        controller.import_attestation_key(private_key, admin_pin.encode('utf-8'))
+    except Exception as e:
+        logger.debug('Failed to import', exc_info=e)
+        ctx.fail('Failed to import attestation key.')
 
-    controller.import_attestation_key(private_key, admin_pin.encode('utf-8'))
 
 @openpgp.command()
 @click.option('--admin-pin', required=False, metavar='PIN',
@@ -366,9 +381,11 @@ def delete_attestation_key(ctx, admin_pin):
 
     if admin_pin is None:
         admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
-
-    controller.delete_attestation_key(admin_pin.encode('utf-8'))
-
+    try:
+        controller.delete_attestation_key(admin_pin.encode('utf-8'))
+    except Exception as e:
+        logger.debug('Failed to delete', exc_info=e)
+        ctx.fail('Failed to delete attestation key.')
 
 
 openpgp.transports = TRANSPORT.CCID
