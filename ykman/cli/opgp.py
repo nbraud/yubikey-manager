@@ -256,7 +256,7 @@ def attest(ctx, key, certificate, pin, format):
             logger.debug('Failed to attest', exc_info=e)
             ctx.fail('Attestation failed')
 
-@openpgp.command()
+@openpgp.command('export-certificate')
 @click.pass_context
 @click.argument(
     'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG', 'ATT']),
@@ -279,7 +279,7 @@ def export_certificate(ctx, key, format, certificate):
     certificate.write(cert.public_bytes(encoding=format))
 
 
-@openpgp.command()
+@openpgp.command('delete-certificate')
 @click.option('--admin-pin', required=False, metavar='PIN',
               help='Admin PIN for OpenPGP.')
 @click.pass_context
@@ -302,7 +302,7 @@ def delete_certificate(ctx, key, admin_pin):
         logger.debug('Failed to delete ', exc_info=e)
         ctx.fail('Failed to delete certificate.')
 
-@openpgp.command()
+@openpgp.command('import-certificate')
 @click.option('--admin-pin', required=False, metavar='PIN',
               help='Admin PIN for OpenPGP.')
 @click.pass_context
@@ -337,7 +337,7 @@ def import_certificate(ctx, key, cert, admin_pin):
         ctx.fail('Failed to import certificate')
 
 
-@openpgp.command()
+@openpgp.command('import-attestation-key')
 @click.option('--admin-pin', required=False, metavar='PIN',
               help='Admin PIN for OpenPGP.')
 @click.pass_context
@@ -367,7 +367,7 @@ def import_attestation_key(ctx, private_key, admin_pin):
         ctx.fail('Failed to import attestation key.')
 
 
-@openpgp.command()
+@openpgp.command('delete-attestation-key')
 @click.option('--admin-pin', required=False, metavar='PIN',
               help='Admin PIN for OpenPGP.')
 @click.pass_context
