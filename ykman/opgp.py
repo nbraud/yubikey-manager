@@ -181,6 +181,7 @@ class OpgpController(object):
 
     def _verify(self, pw, pin):
         try:
+            pin = pin.encode('utf-8')
             self.send_apdu(0, INS.VERIFY, 0, pw, pin)
         except APDUError:
             pw_remaining = self.get_remaining_pin_tries()[pw-PW1]

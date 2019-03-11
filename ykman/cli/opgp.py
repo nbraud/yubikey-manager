@@ -179,7 +179,7 @@ def touch(ctx, key, policy, admin_pin, force):
         key, policy), abort=True, err=True)
     if admin_pin is None:
         admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
-    controller.set_touch(key, policy, admin_pin.encode('utf8'))
+    controller.set_touch(key, policy, admin_pin)
 
 
 @openpgp.command('set-pin-retries')
@@ -204,7 +204,7 @@ def set_pin_retries(ctx, pw_attempts, admin_pin, force):
                    '3 PINs!')
     force or click.confirm('Set PIN retry counters to: {} {} {}?'.format(
         *pw_attempts), abort=True, err=True)
-    controller.set_pin_retries(*(pw_attempts + (admin_pin.encode('utf8'),)))
+    controller.set_pin_retries(*(pw_attempts + (admin_pin,)))
     click.echo('PIN retries successfully set.')
     if resets_pins:
         click.echo('Default PINs are set.')
@@ -250,7 +250,7 @@ def attest(ctx, key, certificate, pin, format):
         if touch_policy in [TOUCH_MODE.ON, TOUCH_MODE.FIXED]:
             click.echo('Touch your YubiKey...')
         try:
-            cert = controller.attest(key, pin.encode('utf-8'))
+            cert = controller.attest(key, pin)
             certificate.write(cert.public_bytes(encoding=format))
         except Exception as e:
             logger.debug('Failed to attest', exc_info=e)
@@ -297,7 +297,7 @@ def delete_certificate(ctx, key, admin_pin):
     if admin_pin is None:
         admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
     try:
-        controller.delete_certificate(key, admin_pin.encode('utf-8'))
+        controller.delete_certificate(key, admin_pin)
     except Exception as e:
         logger.debug('Failed to delete ', exc_info=e)
         ctx.fail('Failed to delete certificate.')
@@ -331,7 +331,7 @@ def import_certificate(ctx, key, cert, admin_pin):
     if len(certs) != 1:
         ctx.fail('Can only import one certificate.')
     try:
-        controller.import_certificate(key, certs[0], admin_pin.encode('utf-8'))
+        controller.import_certificate(key, certs[0], admin_pin)
     except Exception as e:
         logger.debug('Failed to import', exc_info=e)
         ctx.fail('Failed to import certificate')
@@ -361,7 +361,7 @@ def import_attestation_key(ctx, private_key, admin_pin):
         logger.debug('Failed to parse', exc_info=e)
         ctx.fail('Failed to parse private key.')
     try:
-        controller.import_attestation_key(private_key, admin_pin.encode('utf-8'))
+        controller.import_attestation_key(private_key, admin_pin)
     except Exception as e:
         logger.debug('Failed to import', exc_info=e)
         ctx.fail('Failed to import attestation key.')
@@ -382,7 +382,7 @@ def delete_attestation_key(ctx, admin_pin):
     if admin_pin is None:
         admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
     try:
-        controller.delete_attestation_key(admin_pin.encode('utf-8'))
+        controller.delete_attestation_key(admin_pin)
     except Exception as e:
         logger.debug('Failed to delete', exc_info=e)
         ctx.fail('Failed to delete attestation key.')
