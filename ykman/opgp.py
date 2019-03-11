@@ -33,7 +33,7 @@ import logging
 from .util import AID
 from .driver_ccid import (APDUError, SW, GP_INS_SELECT)
 from enum import Enum, IntEnum, unique
-from binascii import b2a_hex
+from binascii import b2a_hex, a2b_hex
 from collections import namedtuple
 from cryptography import x509
 from cryptography.utils import int_to_bytes
@@ -214,7 +214,7 @@ class OpgpController(object):
     def read_certificate(self, key_slot):
         self.send_cmd(
             0, INS.SELECT_DATA, key_slot.cert_position(),
-            0x04, data=bytes(bytearray.fromhex('0660045C027F21')))
+            0x04, data=a2b_hex('0660045C027F21'))
         data = self.send_cmd(
             0, INS.GET_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21)
         if not data:
@@ -226,7 +226,7 @@ class OpgpController(object):
         cert_data = certificate.public_bytes(Encoding.DER)
         self.send_cmd(
             0, INS.SELECT_DATA, key_slot.cert_position(),
-            0x04, data=bytes(bytearray.fromhex('0660045C027F21')))
+            0x04, data=a2b_hex('0660045C027F21'))
         self.send_cmd(
             0, INS.PUT_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21, data=cert_data)
 
@@ -235,8 +235,7 @@ class OpgpController(object):
             return struct.pack(">BHHB", 0x01, key.key_size, 32, 0)
         if isinstance(key, ec.EllipticCurvePrivateKey):
             return int_to_bytes(
-                self._get_opgp_algo_id_from_ec(key)) + bytes(
-                    bytearray.fromhex(self._get_oid_from_ec(key)))
+                self._get_opgp_algo_id_from_ec(key)) + a2b_hex(self._get_oid_from_ec(key))
         raise ValueError('Not a valid private key!')
 
     def _get_oid_from_ec(self, key):
@@ -272,7 +271,7 @@ class OpgpController(object):
             return bytearray(res)
 
         private_numbers = key.private_numbers()
-        data = bytes(bytearray.fromhex('B603840181'))
+        data = a2b_hex('B603840181')
 
         if isinstance(key, rsa.RSAPrivateKey):
             ln = key.key_size // 8 // 2
@@ -305,7 +304,7 @@ class OpgpController(object):
         self._verify(PW3, admin_pin)
         self.send_cmd(
             0, INS.SELECT_DATA, key_slot.cert_position(),
-            0x04, data=bytes(bytearray.fromhex('0660045C027F21')))
+            0x04, data=a2b_hex('0660045C027F21'))
         self.send_apdu(0, INS.PUT_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21, data=b'')
 
     def attest(self, key_slot, pin):
@@ -313,7 +312,7 @@ class OpgpController(object):
         self.send_apdu(0x80, INS.GET_ATTESTATION, key_slot.key_position(), 0)
         self.send_cmd(
             0, INS.SELECT_DATA, key_slot.cert_position(),
-            0x04, data=bytes(bytearray.fromhex('0660045C027F21')))
+            0x04, data=a2b_hex('0660045C027F21'))
         data = self.send_cmd(
             0, INS.GET_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21)
         return x509.load_der_x509_certificate(data, default_backend())
