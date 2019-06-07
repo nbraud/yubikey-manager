@@ -155,7 +155,7 @@ def echo_default_pins():
     'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG', 'ATT']),
     callback=lambda c, p, v: KEY_SLOT(v))
 @click.argument(
-    'policy', metavar='POLICY', type=UpperCaseChoice(['ON', 'OFF', 'FIXED']),
+    'policy', metavar='POLICY', type=UpperCaseChoice(['ON', 'OFF', 'FIXED', 'CACHED', 'CACHED_FIXED']),
     callback=lambda c, p, v: TOUCH_MODE[v])
 @click.option('--admin-pin', required=False, metavar='PIN',
               help='Admin PIN for OpenPGP.')
@@ -167,7 +167,7 @@ def touch(ctx, key, policy, admin_pin, force):
 
     \b
     KEY     Key slot to set (sig, enc, aut or att).
-    POLICY  Touch policy to set (on, off or fixed).
+    POLICY  Touch policy to set (on, off, fixed, cached or cached-fix).
     """
     controller = ctx.obj['controller']
     old_policy = controller.get_touch(key)

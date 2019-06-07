@@ -87,6 +87,8 @@ class TOUCH_MODE(IntEnum):  # noqa: N801
     OFF = 0x00
     ON = 0x01
     FIXED = 0x02
+    CACHED = 0x03
+    CACHED_FIXED = 0x04
 
 @unique
 class TAG(IntEnum):  # noqa: N801
