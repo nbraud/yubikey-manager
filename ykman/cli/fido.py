@@ -142,15 +142,19 @@ def delete(ctx, query, pin, force):
             CredentialManagement.RESULT.USER]['name'].lower() or \
                 query.lower() in rp[
                     CredentialManagement.RESULT.RP]['id']:
-            hits.append(cred)
+            hits.append([cred, rp])
 
     if not hits:
         ctx.fail('No matches')
     elif len(hits) == 1:
         if force or click.confirm(
-                'Delete credential {}?'.format('NAME')):
+                'Delete credential {} ({})?'.format(
+                    hits[0][0][CredentialManagement.RESULT.USER]['name'],
+                    hits[0][1][CredentialManagement.RESULT.RP]['id'],
+                    )
+                ):
             controller.delete_resident_credential(
-                cred[CredentialManagement.RESULT.CREDENTIAL_ID], pin)
+                hits[0][0][CredentialManagement.RESULT.CREDENTIAL_ID], pin)
     else:
         ctx.fail('Multiple matches, make the query more specific.')
 
