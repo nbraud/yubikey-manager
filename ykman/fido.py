@@ -36,7 +36,9 @@ from threading import Timer
 from .driver_ccid import SW
 from .driver_fido import FIPS_U2F_CMD
 
+
 logger = logging.getLogger(__name__)
+
 
 class Fido2Controller(object):
 
@@ -50,24 +52,30 @@ class Fido2Controller(object):
     def has_pin(self):
         return self._pin
 
-    def _get_creds(self, pin):
-        _credman = CredentialManagement(self.ctap, self.pin.VERSION, self.pin.get_pin_token(pin))
+    def get_resident_credentials(self, pin):
+        _credman = CredentialManagement(
+            self.ctap,
+            self.pin.VERSION,
+            self.pin.get_pin_token(pin))
+
         for rp in _credman.enumerate_rps():
             logger.debug('RP found: {}'.format(rp))
-            for cred in _credman.enumerate_creds(rp[CredentialManagement.RESULT.RP_ID_HASH]):
+
+            for cred in _credman.enumerate_creds(
+                    rp[CredentialManagement.RESULT.RP_ID_HASH]):
                 logger.debug('Credential found: {}'.format(cred))
                 yield cred, rp
 
-    def get_resident_creds(self, pin):
-        for cred, rp in self._get_creds(pin):
-            yield cred[CredentialManagement.RESULT.USER]['name'], rp[CredentialManagement.RESULT.RP]['id']
-
     def delete_resident_cred(self, query, pin):
-        _credman = CredentialManagement(self.ctap, self.pin.VERSION, self.pin.get_pin_token(pin))
-        cred_pairs = list(self._get_creds(pin))
-        for pair in cred_pairs:
-            if pair[0][CredentialManagement.RESULT.USER]['name'] == query:
-                _credman.delete_cred(pair[0][CredentialManagement.RESULT.CREDENTIAL_ID])
+        _credman = CredentialManagement(
+            self.ctap,
+            self.pin.VERSION,
+            self.pin.get_pin_token(pin))
+
+        for cred, rp in self.get_resident_credentials(pin):
+            if query in cred[CredentialManagement.RESULT.USER]['name']:
+                _credman.delete_cred(
+                    cred[CredentialManagement.RESULT.CREDENTIAL_ID])
 
     def get_pin_retries(self):
         return self.pin.get_pin_retries()

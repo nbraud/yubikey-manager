@@ -29,6 +29,7 @@ from __future__ import absolute_import
 import click
 import logging
 from fido2.ctap1 import ApduError
+from fido2.ctap2 import CredentialManagement
 from fido2.ctap import CtapError
 from time import sleep
 from .util import click_postpone_execution, prompt_for_touch, click_force_option
@@ -101,6 +102,7 @@ def info(ctx):
         else:
             click.echo('PIN is not set.')
 
+
 @fido.command()
 @click.pass_context
 @click.option('-P', '--pin', help='Current PIN code.')
@@ -109,8 +111,10 @@ def list(ctx, pin):
     List FIDO2 resident credentials.
     """
     controller = ctx.obj['controller']
-    for name, rp in controller.get_resident_creds(pin):
-        click.echo('{} ({})'.format(name, rp))
+    for cred, rp in controller.get_resident_credentials(pin):
+        click.echo('{} ({})'.format(
+                cred[CredentialManagement.RESULT.USER]['name'],
+                rp[CredentialManagement.RESULT.RP]['id']))
 
 
 @fido.command()
