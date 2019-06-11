@@ -101,6 +101,29 @@ def info(ctx):
         else:
             click.echo('PIN is not set.')
 
+@fido.command()
+@click.pass_context
+@click.option('-P', '--pin', help='Current PIN code.')
+def list(ctx, pin):
+    """
+    List FIDO2 resident credentials.
+    """
+    controller = ctx.obj['controller']
+    for name, rp in controller.get_resident_creds(pin):
+        click.echo('{} ({})'.format(name, rp))
+
+
+@fido.command()
+@click.pass_context
+@click.argument('query')
+@click.option('-P', '--pin', help='Current PIN code.')
+def delete(ctx, query, pin):
+    """
+    Delete a FIDO2 resident credential.
+    """
+    controller = ctx.obj['controller']
+    controller.delete_resident_cred(query, pin)
+
 
 @fido.command('set-pin')
 @click.pass_context
