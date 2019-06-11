@@ -59,8 +59,9 @@ class Fido2Controller(object):
             self.pin.get_pin_token(pin))
 
         for rp in _credman.enumerate_rps():
+            if rp[CredentialManagement.RESULT.TOTAL_RPS] == 0:
+                break
             logger.debug('RP found: {}'.format(rp))
-
             for cred in _credman.enumerate_creds(
                     rp[CredentialManagement.RESULT.RP_ID_HASH]):
                 logger.debug('Credential found: {}'.format(cred))
