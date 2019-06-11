@@ -66,16 +66,15 @@ class Fido2Controller(object):
                 logger.debug('Credential found: {}'.format(cred))
                 yield cred, rp
 
-    def delete_resident_cred(self, query, pin):
+    def delete_resident_credential(self, credential_id, pin):
         _credman = CredentialManagement(
             self.ctap,
             self.pin.VERSION,
             self.pin.get_pin_token(pin))
 
         for cred, rp in self.get_resident_credentials(pin):
-            if query in cred[CredentialManagement.RESULT.USER]['name']:
-                _credman.delete_cred(
-                    cred[CredentialManagement.RESULT.CREDENTIAL_ID])
+            if credential_id == cred[CredentialManagement.RESULT.CREDENTIAL_ID]:
+                _credman.delete_cred(credential_id)
 
     def get_pin_retries(self):
         return self.pin.get_pin_retries()

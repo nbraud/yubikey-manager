@@ -105,12 +105,16 @@ def info(ctx):
 
 @fido.command()
 @click.pass_context
-@click.option('-P', '--pin', help='Current PIN code.')
+@click.option('-P', '--pin', help='PIN code.')
 def list(ctx, pin):
     """
     List FIDO2 resident credentials.
     """
     controller = ctx.obj['controller']
+
+    if controller.has_pin and pin is None:
+        pin = _prompt_current_pin(prompt='Enter your PIN')
+
     for cred, rp in controller.get_resident_credentials(pin):
         click.echo('{} ({})'.format(
                 cred[CredentialManagement.RESULT.USER]['name'],
@@ -120,13 +124,35 @@ def list(ctx, pin):
 @fido.command()
 @click.pass_context
 @click.argument('query')
-@click.option('-P', '--pin', help='Current PIN code.')
-def delete(ctx, query, pin):
+@click.option('-P', '--pin', help='PIN code.')
+@click.option('-f', '--force', is_flag=True,
+              help='Confirm deletion without prompting')
+def delete(ctx, query, pin, force):
     """
     Delete a FIDO2 resident credential.
     """
     controller = ctx.obj['controller']
-    controller.delete_resident_cred(query, pin)
+
+    if controller.has_pin and pin is None:
+        pin = _prompt_current_pin(prompt='Enter your PIN')
+
+    hits = []
+    for cred, rp in controller.get_resident_credentials(pin):
+        if query.lower() in cred[
+            CredentialManagement.RESULT.USER]['name'].lower() or \
+                query.lower() in rp[
+                    CredentialManagement.RESULT.RP]['id']:
+            hits.append(cred)
+
+    if not hits:
+        ctx.fail('No matches')
+    elif len(hits) == 1:
+        if force or click.confirm(
+                'Delete credential {}?'.format('NAME')):
+            controller.delete_resident_credential(
+                cred[CredentialManagement.RESULT.CREDENTIAL_ID], pin)
+    else:
+        ctx.fail('Multiple matches, make the query more specific.')
 
 
 @fido.command('set-pin')
