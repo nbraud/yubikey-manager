@@ -110,17 +110,17 @@ def info(ctx):
         click.echo()
         click.echo('Touch policies')
         click.echo(
-            'Signature key           {.name}'.format(
+            'Signature key           {!s}'.format(
                 controller.get_touch(KEY_SLOT.SIGNATURE)))
         click.echo(
-            'Encryption key          {.name}'.format(
+            'Encryption key          {!s}'.format(
                 controller.get_touch(KEY_SLOT.ENCRYPTION)))
         click.echo(
-            'Authentication key      {.name}'.format(
+            'Authentication key      {!s}'.format(
                 controller.get_touch(KEY_SLOT.AUTHENTICATION)))
         try:
             click.echo(
-                'Attestation key         {.name}'.format(
+                'Attestation key         {!s}'.format(
                     controller.get_touch(KEY_SLOT.ATTESTATION)))
         except APDUError:
             logger.debug('No attestation key slot found')
@@ -150,37 +150,41 @@ def echo_default_pins():
     click.echo('Admin PIN:   12345678')
 
 
-@openpgp.command()
+@openpgp.command('set-touch')
 @click.argument(
     'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG', 'ATT']),
     callback=lambda c, p, v: KEY_SLOT(v))
 @click.argument(
-    'policy', metavar='POLICY', type=UpperCaseChoice(['ON', 'OFF', 'FIXED', 'CACHED', 'CACHED_FIXED']),
-    callback=lambda c, p, v: TOUCH_MODE[v])
-@click.option('--admin-pin', required=False, metavar='PIN',
-              help='Admin PIN for OpenPGP.')
+    'policy', metavar='POLICY', type=UpperCaseChoice(['ON', 'OFF', 'FIXED', 'CACHED', 'CACHED-FIXED']),
+    callback=lambda c, p, v: TOUCH_MODE[v.replace('-', '_')])
+@click.option('-a', '--admin-pin', help='Admin PIN for OpenPGP.')
 @click_force_option
 @click.pass_context
-def touch(ctx, key, policy, admin_pin, force):
+def set_touch(ctx, key, policy, admin_pin, force):
     """
-    Manage touch policy for OpenPGP keys.
+    Set touch policy for OpenPGP keys.
 
     \b
     KEY     Key slot to set (sig, enc, aut or att).
     POLICY  Touch policy to set (on, off, fixed, cached or cached-fix).
     """
     controller = ctx.obj['controller']
-    old_policy = controller.get_touch(key)
 
-    if old_policy == TOUCH_MODE.FIXED:
-        ctx.fail('A FIXED policy cannot be changed!')
-
-    force or click.confirm('Set touch policy of {.name} key to {.name}?'.format(
-        key, policy), abort=True, err=True)
     if admin_pin is None:
         admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
-    controller.set_touch(key, policy, admin_pin)
 
+    if force or click.confirm(
+            'Set touch policy of {} key to {}?'.format(
+                key.name.lower(),
+                policy.name.lower().replace('_', '-')),
+                abort=True, err=True):
+        try:
+            controller.set_touch(key, policy, admin_pin)
+        except APDUError as e:
+            if e.sw == SW.SECURITY_CONDITION_NOT_SATISFIED:
+                ctx.fail('Touch policy not allowed.')
+            logger.debug('Failed to set touch policy', exc_info=e)
+            ctx.fail('Failed to set touch policy.')
 
 @openpgp.command('set-pin-retries')
 @click.argument('pw-attempts', nargs=3, type=click.IntRange(1, 99))
@@ -280,8 +284,7 @@ def export_certificate(ctx, key, format, certificate):
 
 
 @openpgp.command('delete-certificate')
-@click.option('--admin-pin', required=False, metavar='PIN',
-              help='Admin PIN for OpenPGP.')
+@click.option('-a', '--admin-pin', help='Admin PIN for OpenPGP.')
 @click.pass_context
 @click.argument(
     'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG', 'ATT']),
@@ -302,9 +305,9 @@ def delete_certificate(ctx, key, admin_pin):
         logger.debug('Failed to delete ', exc_info=e)
         ctx.fail('Failed to delete certificate.')
 
+
 @openpgp.command('import-certificate')
-@click.option('--admin-pin', required=False, metavar='PIN',
-              help='Admin PIN for OpenPGP.')
+@click.option('-a', '--admin-pin', help='Admin PIN for OpenPGP.')
 @click.pass_context
 @click.argument(
     'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG', 'ATT']),
@@ -338,8 +341,7 @@ def import_certificate(ctx, key, cert, admin_pin):
 
 
 @openpgp.command('import-attestation-key')
-@click.option('--admin-pin', required=False, metavar='PIN',
-              help='Admin PIN for OpenPGP.')
+@click.option('-a', '--admin-pin', help='Admin PIN for OpenPGP.')
 @click.pass_context
 @click.argument('private-key', type=click.File('rb'), metavar='PRIVATE-KEY')
 def import_attestation_key(ctx, private_key, admin_pin):
@@ -368,8 +370,7 @@ def import_attestation_key(ctx, private_key, admin_pin):
 
 
 @openpgp.command('delete-attestation-key')
-@click.option('--admin-pin', required=False, metavar='PIN',
-              help='Admin PIN for OpenPGP.')
+@click.option('-a', '--admin-pin', help='Admin PIN for OpenPGP.')
 @click.pass_context
 def delete_attestation_key(ctx, admin_pin):
     """

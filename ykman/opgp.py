@@ -90,9 +90,23 @@ class TOUCH_MODE(IntEnum):  # noqa: N801
     CACHED = 0x03
     CACHED_FIXED = 0x04
 
+    def __str__(self):
+        if self == TOUCH_MODE.OFF:
+            return 'Off'
+        elif self == TOUCH_MODE.ON:
+            return 'On'
+        elif self == TOUCH_MODE.FIXED:
+            return 'On (fixed)'
+        elif self == TOUCH_MODE.CACHED:
+            return 'Cached'
+        elif self == TOUCH_MODE.CACHED_FIXED:
+            return 'Cached (fixed)'
+
+
 @unique
 class TAG(IntEnum):  # noqa: N801
     CARDHOLDER_CERTIFICATE = 0x7f
+
 
 @unique
 class INS(IntEnum):  # noqa: N801
@@ -193,12 +207,17 @@ class OpgpController(object):
     def get_touch(self, key_slot):
         if self.version < (4, 2, 0):
             raise ValueError('Touch policy is available on YubiKey 4 or later.')
+        if self.version < (5, 2, 1) and key_slot == KEY_SLOT.ATTESTATION:
+            raise ValueError('Attestation key not available on this device.')
         data = self.send_apdu(0, INS.GET_DATA, 0, key_slot.touch_position())
         return TOUCH_MODE(six.indexbytes(data, 0))
 
     def set_touch(self, key_slot, mode, admin_pin):
         if self.version < (4, 2, 0):
             raise ValueError('Touch policy is available on YubiKey 4 or later.')
+        if self.version < (5, 2, 1) and mode in [
+                    TOUCH_MODE.CACHED, TOUCH_MODE.CACHED_FIXED]:
+            raise ValueError('Cached touch policies not available on this device.')
         self._verify(PW3, admin_pin)
         self.send_apdu(0, INS.PUT_DATA, 0, key_slot.touch_position(),
                        bytes(bytearray([mode, TOUCH_METHOD_BUTTON])))
