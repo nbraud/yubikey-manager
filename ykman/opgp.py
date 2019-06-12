@@ -40,7 +40,8 @@ from cryptography.utils import int_to_bytes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.hazmat.primitives.asymmetric import rsa, ec
-from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1, SECP384R1, SECP521R1
+from cryptography.hazmat.primitives.asymmetric.ec import (
+    SECP256R1, SECP384R1, SECP521R1)
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +218,8 @@ class OpgpController(object):
             raise ValueError('Touch policy is available on YubiKey 4 or later.')
         if self.version < (5, 2, 1) and mode in [
                     TOUCH_MODE.CACHED, TOUCH_MODE.CACHED_FIXED]:
-            raise ValueError('Cached touch policies not available on this device.')
+            raise ValueError(
+                    'Cached touch policies not available on this device.')
         self._verify(PW3, admin_pin)
         self.send_apdu(0, INS.PUT_DATA, 0, key_slot.touch_position(),
                        bytes(bytearray([mode, TOUCH_METHOD_BUTTON])))
@@ -257,7 +259,8 @@ class OpgpController(object):
             return struct.pack(">BHHB", 0x01, key.key_size, 32, 0)
         if isinstance(key, ec.EllipticCurvePrivateKey):
             return int_to_bytes(
-                self._get_opgp_algo_id_from_ec(key)) + a2b_hex(self._get_oid_from_ec(key))
+                self._get_opgp_algo_id_from_ec(
+                    key)) + a2b_hex(self._get_oid_from_ec(key))
         raise ValueError('Not a valid private key!')
 
     def _get_oid_from_ec(self, key):
@@ -318,16 +321,21 @@ class OpgpController(object):
 
     def delete_attestation_key(self, admin_pin):
         self._verify(PW3, admin_pin)
-        # Change the key attributes for the attestation key twice, that will wipe it.
-        self.send_cmd(0, INS.PUT_DATA, 0, 0xda, data=struct.pack(">BHHB", 0x01, 2048, 32, 0))
-        self.send_cmd(0, INS.PUT_DATA, 0, 0xda, data=struct.pack(">BHHB", 0x01, 4096, 32, 0))
+        # Delete attestation key by changing the key attributes twice.
+        self.send_cmd(
+            0, INS.PUT_DATA, 0, 0xda,
+            data=struct.pack(">BHHB", 0x01, 2048, 32, 0))
+        self.send_cmd(
+            0, INS.PUT_DATA, 0, 0xda,
+            data=struct.pack(">BHHB", 0x01, 4096, 32, 0))
 
     def delete_certificate(self, key_slot, admin_pin):
         self._verify(PW3, admin_pin)
         self.send_cmd(
             0, INS.SELECT_DATA, key_slot.cert_position(),
             0x04, data=a2b_hex('0660045C027F21'))
-        self.send_apdu(0, INS.PUT_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21, data=b'')
+        self.send_apdu(
+            0, INS.PUT_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21, data=b'')
 
     def attest(self, key_slot, pin):
         self._verify(PW1, pin)

@@ -155,7 +155,8 @@ def echo_default_pins():
     'key', metavar='KEY', type=UpperCaseChoice(['AUT', 'ENC', 'SIG', 'ATT']),
     callback=lambda c, p, v: KEY_SLOT(v))
 @click.argument(
-    'policy', metavar='POLICY', type=UpperCaseChoice(['ON', 'OFF', 'FIXED', 'CACHED', 'CACHED-FIXED']),
+    'policy', metavar='POLICY',
+    type=UpperCaseChoice(['ON', 'OFF', 'FIXED', 'CACHED', 'CACHED-FIXED']),
     callback=lambda c, p, v: TOUCH_MODE[v.replace('-', '_')])
 @click.option('-a', '--admin-pin', help='Admin PIN for OpenPGP.')
 @click_force_option
@@ -186,33 +187,45 @@ def set_touch(ctx, key, policy, admin_pin, force):
             logger.debug('Failed to set touch policy', exc_info=e)
             ctx.fail('Failed to set touch policy.')
 
+
 @openpgp.command('set-pin-retries')
-@click.argument('pw-attempts', nargs=3, type=click.IntRange(1, 99))
-@click.password_option('--admin-pin', metavar='PIN', prompt='Enter admin PIN',
-                       confirmation_prompt=False)
+@click.argument(
+    'pin-retries', type=click.IntRange(1, 99), metavar='PIN-RETRIES')
+@click.argument(
+    'reset-code-retries',
+    type=click.IntRange(1, 99), metavar='RESET-CODE-RETRIES')
+@click.argument(
+    'admin-pin-retries',
+    type=click.IntRange(1, 99), metavar='ADMIN-PIN-RETRIES')
+@click.option('-a', '--admin-pin', help='Admin PIN for OpenPGP.')
 @click_force_option
 @click.pass_context
-def set_pin_retries(ctx, pw_attempts, admin_pin, force):
+def set_pin_retries(
+        ctx, admin_pin, pin_retries,
+        reset_code_retries, admin_pin_retries, force):
     """
-    Manage pin-retries.
-
-    Sets the number of attempts available before locking for each PIN.
-
-    PW_ATTEMPTS should be three integer values corresponding to the number of
-    attempts for the PIN, Reset Code, and Admin PIN, respectively.
+    Set PIN, Reset Code and Admin PIN retries.
     """
     controller = ctx.obj['controller']
+
+    if admin_pin is None:
+        admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
+
     resets_pins = controller.version < (4, 0, 0)
     if resets_pins:
         click.echo('WARNING: Setting PIN retries will reset the values for all '
                    '3 PINs!')
-    force or click.confirm('Set PIN retry counters to: {} {} {}?'.format(
-        *pw_attempts), abort=True, err=True)
-    controller.set_pin_retries(*(pw_attempts + (admin_pin,)))
-    click.echo('PIN retries successfully set.')
-    if resets_pins:
-        click.echo('Default PINs are set.')
-        echo_default_pins()
+    if force or click.confirm(
+            'Set PIN retry counters to: {} {} {}?'.format(
+                pin_retries, reset_code_retries,
+                admin_pin_retries), abort=True, err=True):
+
+        controller.set_pin_retries(
+            pin_retries, reset_code_retries, admin_pin_retries, admin_pin)
+
+        if resets_pins:
+            click.echo('Default PINs are set.')
+            echo_default_pins()
 
 
 @openpgp.command()
