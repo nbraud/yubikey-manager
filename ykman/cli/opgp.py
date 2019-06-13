@@ -81,7 +81,7 @@ def openpgp(ctx):
 
     \b
       Require touch to use the authentication key:
-      $ ykman openpgp touch aut on
+      $ ykman openpgp set-touch aut on
     """
     try:
         ctx.obj['controller'] = OpgpController(ctx.obj['dev'].driver)
