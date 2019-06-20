@@ -128,7 +128,7 @@ class Descriptor(object):
 
 def _gen_descriptors():
     found = []  # Composite devices are listed multiple times on Windows...
-    for dev in usb.core.find(True, idVendor=0x1050, backend=get_usb_backend()):
+    for dev in usb.core.find(True, idVendor=0x1050):
         try:
             addr = (dev.bus, dev.address)
             if addr not in found:
