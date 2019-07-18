@@ -291,6 +291,25 @@ def export_certificate(ctx, key, format, certificate):
     certificate.write(cert.public_bytes(encoding=format))
 
 
+@openpgp.command('export-attestation-certificate')
+@click.pass_context
+@click_format_option
+@click.argument('certificate', type=click.File('wb'), metavar='CERTIFICATE')
+def export_certificate(ctx, format, certificate):
+    """
+    Export the OpenPGP Attestation certificate.
+
+    \b
+    CERTIFICATE File to write certificate to. Use '-' to use stdout.
+    """
+    controller = ctx.obj['controller']
+    try:
+        cert = controller.read_attestation_certificate()
+    except ValueError:
+        ctx.fail('Failed to read attestation certificate.')
+    certificate.write(cert.public_bytes(encoding=format))
+
+
 @openpgp.command('delete-certificate')
 @click.option('-a', '--admin-pin', help='Admin PIN for OpenPGP.')
 @click.pass_context
@@ -343,6 +362,32 @@ def import_certificate(ctx, key, cert, admin_pin):
         logger.debug('Failed to import', exc_info=e)
         ctx.fail('Failed to import certificate')
 
+@openpgp.command('import-attestation-certificate')
+@click.option('-a', '--admin-pin', help='Admin PIN for OpenPGP.')
+@click.pass_context
+@click.argument('cert', type=click.File('rb'), metavar='CERTIFICATE')
+def import_certificate(ctx, cert, admin_pin):
+    """
+    Import an OpenPGP Attestation certificate.
+
+    \b
+    CERTIFICATE File containing the certificate. Use '-' to use stdin.
+    """
+    controller = ctx.obj['controller']
+    if admin_pin is None:
+        admin_pin = click.prompt('Enter admin PIN', hide_input=True, err=True)
+    try:
+        certs = parse_certificates(cert.read(), password=None)
+    except Exception as e:
+        logger.debug('Failed to parse', exc_info=e)
+        ctx.fail('Failed to parse certificate.')
+    if len(certs) != 1:
+        ctx.fail('Can only import one certificate.')
+    try:
+        controller.import_attestation_certificate(certs[0], admin_pin)
+    except Exception as e:
+        logger.debug('Failed to import', exc_info=e)
+        ctx.fail('Failed to import certificate')
 
 @openpgp.command('import-attestation-key')
 @click.option('-a', '--admin-pin', help='Admin PIN for OpenPGP.')

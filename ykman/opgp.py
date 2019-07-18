@@ -261,6 +261,12 @@ class OpgpController(object):
             raise ValueError('No certificate found!')
         return x509.load_der_x509_certificate(data, default_backend())
 
+    def read_attestation_certificate(self):
+        data = self.send_cmd(0, INS.GET_DATA, 0, 0xfc)
+        if not data:
+            raise ValueError('No certificate found!')
+        return x509.load_der_x509_certificate(data, default_backend())
+
     def import_certificate(self, key_slot, certificate, admin_pin):
         self._verify(PW3, admin_pin)
         cert_data = certificate.public_bytes(Encoding.DER)
@@ -269,6 +275,11 @@ class OpgpController(object):
             0x04, data=a2b_hex('0660045C027F21'))
         self.send_cmd(
             0, INS.PUT_DATA, TAG.CARDHOLDER_CERTIFICATE, 0x21, data=cert_data)
+
+    def import_attestation_certificate(self, certificate, admin_pin):
+        self._verify(PW3, admin_pin)
+        cert_data = certificate.public_bytes(Encoding.DER)
+        self.send_cmd(0, INS.PUT_DATA, 0, 0xfc, data=cert_data)
 
     def _get_key_attributes(self, key):
         if isinstance(key, rsa.RSAPrivateKey):
